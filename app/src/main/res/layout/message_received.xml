@@ -6,39 +6,39 @@
     android:layout_height="match_parent">
 
     <LinearLayout
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:gravity="start"
-        android:orientation="horizontal"
+        android:layout_margin="4dp"
+        android:background="@drawable/bubble_received"
+        android:orientation="vertical"
         android:padding="8dp"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.042"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.024">
 
-        <LinearLayout
+        <!-- Message Text -->
+        <TextView
+            android:id="@+id/messageText"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="@drawable/bubble_received"
-            android:orientation="vertical"
-            android:padding="10dp">
+            android:background="@android:color/darker_gray"
+            android:maxWidth="250dp"
+            android:padding="8dp"
+            android:textColor="#000000"
+            android:textSize="16sp" />
 
-            <TextView
-                android:id="@+id/messageText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@android:color/black"
-                android:textSize="16sp" />
-
-            <TextView
-                android:id="@+id/messageTime"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="@android:color/darker_gray"
-                android:textSize="12sp" />
-        </LinearLayout>
-
+        <!-- Timestamp -->
+        <TextView
+            android:id="@+id/messageTime"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="#000000"
+            android:textSize="12sp" />
     </LinearLayout>
-
 
 
 </androidx.constraintlayout.widget.ConstraintLayout>
