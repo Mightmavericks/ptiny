@@ -1,0 +1,38 @@
+[versions]
+agp = "8.8.0"
+firebaseBom = "33.9.0"
+firebaseBomVersion = "33.7.0"
+firebaseDatabaseKtx = "21.0.0"
+googleWebrtc = "1.0.32006"
+googleWebrtcVersion = "1.0.5"
+gson = "2.10.1"
+junit = "4.13.2"
+junitVersion = "1.2.1"
+espressoCore = "3.6.1"
+appcompat = "1.7.0"
+material = "1.12.0"
+activity = "1.10.0"
+constraintlayout = "2.2.0"
+permissionx = "1.7.0"
+webrtc = "1.0.5"
+
+[libraries]
+firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
+firebase-bom-v3370 = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBomVersion" }
+firebase-database-ktx = { module = "com.google.firebase:firebase-database-ktx", version.ref = "firebaseDatabaseKtx" }
+google-webrtc = { module = "org.webrtc:google-webrtc", version.ref = "googleWebrtc" }
+google-webrtc-v105 = { module = "org.webrtc:google-webrtc", version.ref = "googleWebrtcVersion" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
+espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
+appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
+material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
+constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
+permissionx = { module = "com.guolindev.permissionx:permissionx", version.ref = "permissionx" }
+webrtc = { module = "com.mesibo.api:webrtc", version.ref = "webrtc" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+

@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "763374071017",
+    "firebase_url": "https://protegotinyver-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "protegotinyver",
+    "storage_bucket": "protegotinyver.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:763374071017:android:9c32e2566fce4725b55478",
+        "android_client_info": {
+          "package_name": "com.example.protegotinyever"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDHd46MBXFXLdRIXcae9PuV76uOkC0zL2Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
