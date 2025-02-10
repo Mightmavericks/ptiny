@@ -42,9 +42,8 @@ public class ChatActivity extends AppCompatActivity {
         // Setup RecyclerView
         messageList = new ArrayList<>();
         messageAdapter = new MessageAdapter(messageList, currentUser);
-
-        chatRecyclerView.setAdapter(messageAdapter);
         chatRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        chatRecyclerView.setAdapter(messageAdapter);
 
         sendButton.setOnClickListener(view -> sendMessage());
 
@@ -69,19 +68,13 @@ public class ChatActivity extends AppCompatActivity {
 
     public void addMessageToUI(MessageModel message) {
         runOnUiThread(() -> {
-            if (messageList == null || messageAdapter == null || chatRecyclerView == null) {
-                Log.e("WebRTC", "❌ ERROR: messageList, messageAdapter, or chatRecyclerView is NULL!");
-                return;
-            }
-
-            messageList.add(message);
-            messageAdapter.notifyItemInserted(messageList.size() - 1);
-            chatRecyclerView.scrollToPosition(messageList.size() - 1);
+            messageList.add(message);  // Add the new message to the list
+            messageAdapter.notifyItemInserted(messageList.size() - 1); // Notify adapter of the new message
+            chatRecyclerView.scrollToPosition(messageList.size() - 1); // Auto-scroll to latest message
         });
 
         Log.d("WebRTC", "📩 UI Updated with message: " + message.getText());
     }
-
 
 
     @Override
