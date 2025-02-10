@@ -10,10 +10,6 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.protegotinyever.tt.DataModelType;
 import com.example.protegotinyever.util.CustomSdpObserver;
 import com.example.protegotinyever.util.DataChannelHandler;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
 
 import org.webrtc.*;
 
@@ -23,12 +19,12 @@ import java.util.ArrayList;
 
 public class ConnectActivity extends AppCompatActivity {
     private EditText peerUsernameInput;
-    private Button connectButton;
     private FirebaseClient firebaseClient;
     private PeerConnection peerConnection;
     private DataChannel dataChannel;
-    private String username;
+    private DataChannelHandler.OnMessageReceivedListener messageReceivedListener;
     private String peerUsername;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,9 +32,9 @@ public class ConnectActivity extends AppCompatActivity {
         setContentView(R.layout.activity_connect);
 
         peerUsernameInput = findViewById(R.id.peerUsernameInput);
-        connectButton = findViewById(R.id.connectButton);
+        Button connectButton = findViewById(R.id.connectButton);
 
-        username = getIntent().getStringExtra("username");
+        String username = getIntent().getStringExtra("username");
         firebaseClient = new FirebaseClient(username);
 
         initializePeerConnectionFactory();
@@ -109,38 +105,39 @@ public class ConnectActivity extends AppCompatActivity {
 
             @Override
             public void onDataChannel(DataChannel dc) {
-                Log.d("WebRTC", "DataChannel established!");
+                Log.d("WebRTC", "✅ DataChannel established!");
                 dataChannel = dc;
                 DataChannelHandler.getInstance().setDataChannel(dc);
 
-                // ✅ Add Observer to Receive Messages
+                // ✅ Ensure DataChannel is correctly observed for messages
                 dc.registerObserver(new DataChannel.Observer() {
                     @Override
                     public void onBufferedAmountChange(long l) {}
 
                     @Override
                     public void onStateChange() {
-                        Log.d("WebRTC", "DataChannel state changed: " + dc.state());
+                        Log.d("WebRTC", "🔄 DataChannel state changed: " + dc.state());
                     }
 
                     @Override
                     public void onMessage(DataChannel.Buffer buffer) {
-                        Log.d("WebRTC", "Received message on DataChannel!");
+                        byte[] data = new byte[buffer.data.remaining()];
+                        buffer.data.get(data);
+                        String receivedMessage = new String(data, StandardCharsets.UTF_8);
 
-                        // ✅ Convert message buffer to string
-                        ByteBuffer data = buffer.data;
-                        byte[] bytes = new byte[data.remaining()];
-                        data.get(bytes);
-                        String receivedMessage = new String(bytes, StandardCharsets.UTF_8);
+                        Log.d("WebRTC", "📩 Message received via DataChannel: " + receivedMessage);
 
-                        // ✅ Send to ChatActivity via DataChannelHandler
-                        DataChannelHandler.getInstance().setOnMessageReceivedListener(message -> {
-                        });
-
-
+                        if (messageReceivedListener != null) {
+                            messageReceivedListener.onMessageReceived(receivedMessage);
+                        } else {
+                            Log.e("WebRTC", "❌ ERROR: messageReceivedListener is NULL! Message lost.");
+                        }
                     }
+
+
                 });
             }
+
 
             @Override
             public void onSignalingChange(PeerConnection.SignalingState signalingState) {}
@@ -152,19 +149,28 @@ public class ConnectActivity extends AppCompatActivity {
                 if (iceConnectionState == PeerConnection.IceConnectionState.CONNECTED) {
                     Log.d("WebRTC", "✅ WebRTC connection successfully established!");
 
-                    // 🚀 Start ChatActivity once the connection is established
+                    // ✅ Ensure UI update is done in main thread
                     runOnUiThread(() -> {
                         Intent intent = new Intent(ConnectActivity.this, ChatActivity.class);
                         intent.putExtra("peerUsername", peerUsername);
+                        Log.d("WebRTC", "📌 Navigating to ChatActivity with peer: " + peerUsername);
+
+                        if (peerUsername == null || peerUsername.isEmpty()) {
+                            Log.e("WebRTC", "❌ Error: peerUsername is NULL or EMPTY! Cannot open ChatActivity.");
+                            return;
+                        }
                         startActivity(intent);
+                        finish(); // Close ConnectActivity so it doesn’t interfere with ChatActivity
                     });
                 }
 
                 if (iceConnectionState == PeerConnection.IceConnectionState.FAILED) {
-                    Log.e("WebRTC", "❌ ICE connection failed! Retrying...");
+                    Log.e("WebRTC", "❌ WebRTC connection failed! Retrying...");
                     retryIceConnection();
                 }
             }
+
+
 
             @Override
             public void onConnectionChange(PeerConnection.PeerConnectionState newState) {

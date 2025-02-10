@@ -1,33 +1,49 @@
 package com.example.protegotinyever;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.protegotinyever.tt.MessageAdapter;
+import com.example.protegotinyever.tt.MessageModel;
 import com.example.protegotinyever.util.DataChannelHandler;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ChatActivity extends AppCompatActivity {
-    private LinearLayout chatLayout;
+    private RecyclerView chatRecyclerView;
     private EditText messageInput;
-    private Button sendButton;
-    private ScrollView scrollView;
+    private MessageAdapter messageAdapter;
+    private List<MessageModel> messageList;
     private DataChannelHandler dataChannelHandler;
+    private String currentUser;
+    private String peerUsername;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        chatLayout = findViewById(R.id.chatLayout);
+        chatRecyclerView = findViewById(R.id.crv);
         messageInput = findViewById(R.id.messageInput);
-        sendButton = findViewById(R.id.sendButton);
-        scrollView = findViewById(R.id.chatScrollView);
+        Button sendButton = findViewById(R.id.sendButton);
 
         dataChannelHandler = DataChannelHandler.getInstance();
+        currentUser = "You"; // This will be changed later to the actual username.
+        peerUsername = getIntent().getStringExtra("peerUsername");
+        if (peerUsername == null || peerUsername.isEmpty()) {
+            peerUsername = "Peer"; // Default fallback
+        }
+
+        // Setup RecyclerView
+        messageList = new ArrayList<>();
+        messageAdapter = new MessageAdapter(messageList, currentUser);
+        chatRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        chatRecyclerView.setAdapter(messageAdapter);
 
         sendButton.setOnClickListener(view -> sendMessage());
 
@@ -37,31 +53,34 @@ public class ChatActivity extends AppCompatActivity {
         }
 
         // ✅ Handle incoming messages
-        dataChannelHandler.setOnMessageReceivedListener(this::addMessageToUI);
+        dataChannelHandler.setOnMessageReceivedListener(message -> {
+            addMessageToUI(new MessageModel(peerUsername, message, System.currentTimeMillis()));
+        });
+
     }
 
     private void sendMessage() {
-        String message = messageInput.getText().toString().trim();
-        if (!message.isEmpty()) {
-            dataChannelHandler.sendMessage(message);
-            addMessageToUI("You: " + message);
+        String messageText = messageInput.getText().toString().trim();
+        if (!messageText.isEmpty()) {
+            Log.d("WebRTC", "📤 Sending message: " + messageText);
+            dataChannelHandler.sendMessage(messageText);
+
+            // Add sent message to UI
+            addMessageToUI(new MessageModel(currentUser, messageText, System.currentTimeMillis()));
             messageInput.setText("");
         }
     }
 
-    // ✅ Ensure messages are displayed correctly
-    private void addMessageToUI(String message) {
+    public void addMessageToUI(MessageModel message) {
         runOnUiThread(() -> {
-            TextView messageView = new TextView(this);
-            messageView.setText(message);
-            messageView.setTextSize(16);
-            messageView.setPadding(10, 5, 10, 5);
-            chatLayout.addView(messageView);
-
-            // ✅ Scroll to bottom so new messages are always visible
-            scrollView.post(() -> scrollView.fullScroll(ScrollView.FOCUS_DOWN));
+            messageList.add(message);  // Add the new message to the list
+            messageAdapter.notifyItemInserted(messageList.size() - 1); // Notify adapter of the new message
+            chatRecyclerView.scrollToPosition(messageList.size() - 1); // Auto-scroll to latest message
         });
+
+        Log.d("WebRTC", "📩 UI Updated with message: " + message.getText());
     }
+
 
     @Override
     protected void onDestroy() {
