@@ -31,6 +31,11 @@ public class ChatActivity extends AppCompatActivity {
 
         sendButton.setOnClickListener(view -> sendMessage());
 
+        String peerUsername = getIntent().getStringExtra("peerUsername");
+        if (peerUsername == null || peerUsername.isEmpty()) {
+            peerUsername = "Peer"; // Default fallback
+        }
+
         // ✅ Handle incoming messages
         dataChannelHandler.setOnMessageReceivedListener(this::addMessageToUI);
     }

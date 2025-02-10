@@ -194,7 +194,9 @@ public class ConnectActivity extends AppCompatActivity {
         });
 
         // ✅ Create DataChannel
+        assert peerConnection != null;
         dataChannel = peerConnection.createDataChannel("chat", new DataChannel.Init());
+        DataChannelHandler.getInstance().setDataChannel(dataChannel);
     }
 
     private void retryIceConnection() {
