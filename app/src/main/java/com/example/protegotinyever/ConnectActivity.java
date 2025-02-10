@@ -10,14 +10,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.protegotinyever.tt.DataModelType;
 import com.example.protegotinyever.util.CustomSdpObserver;
 import com.example.protegotinyever.util.DataChannelHandler;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
 
 import org.webrtc.*;
-
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 
