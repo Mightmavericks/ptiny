@@ -41,8 +41,11 @@ public class ChatActivity extends AppCompatActivity {
 
         // Setup RecyclerView
         messageList = new ArrayList<>();
+        LinearLayoutManager layoutManager = new LinearLayoutManager(this);
+        layoutManager.setStackFromEnd(true);  // Ensures messages start from bottom
+        layoutManager.setSmoothScrollbarEnabled(true);
+        chatRecyclerView.setLayoutManager(layoutManager);
         messageAdapter = new MessageAdapter(messageList, currentUser);
-        chatRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         chatRecyclerView.setAdapter(messageAdapter);
 
         sendButton.setOnClickListener(view -> sendMessage());
@@ -52,9 +55,12 @@ public class ChatActivity extends AppCompatActivity {
             peerUsername = "Peer"; // Default fallback
         }
 
+        Log.d("RecyclerView", "Message List Size: " + messageList.size());
+
         // ✅ Handle incoming messages
+        String finalPeerUsername = peerUsername;
         dataChannelHandler.setOnMessageReceivedListener(message -> {
-            addMessageToUI(new MessageModel(peerUsername, message, System.currentTimeMillis()));
+            addMessageToUI(new MessageModel(finalPeerUsername, message, System.currentTimeMillis()));
         });
 
     }
@@ -75,7 +81,8 @@ public class ChatActivity extends AppCompatActivity {
         runOnUiThread(() -> {
             messageList.add(message);  // Add the new message to the list
             messageAdapter.notifyItemInserted(messageList.size() - 1); // Notify adapter of the new message
-            chatRecyclerView.scrollToPosition(messageList.size() - 1); // Auto-scroll to latest message
+            chatRecyclerView.scrollToPosition(messageList.size() - 1);
+            Log.d("RecyclerView", "Message List Size: " + messageList.size());
         });
 
         Log.d("WebRTC", "📩 UI Updated with message: " + message.getText());

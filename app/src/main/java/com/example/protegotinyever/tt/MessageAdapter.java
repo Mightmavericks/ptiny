@@ -34,7 +34,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     @Override
     public MessageViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         View view = LayoutInflater.from(parent.getContext()).inflate(
-                (viewType == 1) ? R.layout.message_sent : R.layout.message_received, parent, false);
+                (viewType == 1) ? R.layout.message_received : R.layout.message_sent, parent, false);
         return new MessageViewHolder(view);
     }
 
@@ -43,7 +43,10 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
         MessageModel message = messageList.get(position);
         holder.messageText.setText(message.getText());
 
-        // ✅ Ensure timestamp is valid, then format it
+        // ✅ Ensure the ViewHolder uses wrap_content
+        holder.itemView.getLayoutParams().height = ViewGroup.LayoutParams.WRAP_CONTENT;
+
+        // ✅ Format and set timestamp
         long timestamp = (message.getTimestamp() > 0) ? message.getTimestamp() : System.currentTimeMillis();
         String time = new SimpleDateFormat("hh:mm a", Locale.getDefault()).format(new Date(timestamp));
         holder.messageTime.setText(time);
