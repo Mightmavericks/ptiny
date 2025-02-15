@@ -1,4 +1,4 @@
-package com.example.protegotinyever;
+package com.example.protegotinyever.act;
 
 import android.os.Bundle;
 import android.util.Log;
@@ -8,8 +8,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.protegotinyever.R;
 import com.example.protegotinyever.tt.MessageAdapter;
-import com.example.protegotinyever.tt.MessageModel;
+import com.example.protegotinyever.mode.MessageModel;
 import com.example.protegotinyever.util.DataChannelHandler;
 import java.util.ArrayList;
 import java.util.List;

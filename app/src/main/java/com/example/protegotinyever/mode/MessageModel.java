@@ -1,4 +1,4 @@
-package com.example.protegotinyever.tt;
+package com.example.protegotinyever.mode;
 
 public class MessageModel {
     private String sender;

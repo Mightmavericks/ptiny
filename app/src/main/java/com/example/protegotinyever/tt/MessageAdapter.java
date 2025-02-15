@@ -8,6 +8,7 @@ import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.protegotinyever.R;
+import com.example.protegotinyever.mode.MessageModel;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;

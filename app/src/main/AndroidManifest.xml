@@ -16,7 +16,7 @@
         android:theme="@style/Theme.Protegotinyever"
         tools:targetApi="31">
         <activity
-            android:name=".LoginActivity"
+            android:name=".act.LoginActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -24,10 +24,10 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".ChatActivity"
+        <activity android:name=".act.ChatActivity"
             android:exported="true"
             />
-        <activity android:name=".ConnectActivity"
+        <activity android:name=".act.ConnectActivity"
             android:exported="true"
             />
     </application>

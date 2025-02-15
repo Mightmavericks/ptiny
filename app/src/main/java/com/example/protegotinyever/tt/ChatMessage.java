@@ -1,4 +1,4 @@
-package com.example.protegotinyever.util;
+package com.example.protegotinyever.tt;
 
 public class ChatMessage {
     private String sender;

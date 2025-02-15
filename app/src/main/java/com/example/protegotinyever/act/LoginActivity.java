@@ -1,4 +1,4 @@
-package com.example.protegotinyever;
+package com.example.protegotinyever.act;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -7,8 +7,7 @@ import android.widget.EditText;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.example.protegotinyever.ConnectActivity;
-import com.example.protegotinyever.FirebaseClient;
+import com.example.protegotinyever.util.FirebaseClient;
 import com.example.protegotinyever.R;
 
 public class LoginActivity extends AppCompatActivity {

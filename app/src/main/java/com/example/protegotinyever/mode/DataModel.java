@@ -1,4 +1,4 @@
-package com.example.protegotinyever.tt;
+package com.example.protegotinyever.mode;
 
 public class DataModel {
     private String type;  // Offer, Answer, ICE, Chat

@@ -1,4 +1,4 @@
-package com.example.protegotinyever;
+package com.example.protegotinyever.act;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -7,13 +7,14 @@ import android.widget.Button;
 import android.widget.EditText;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.protegotinyever.util.FirebaseClient;
+import com.example.protegotinyever.R;
 import com.example.protegotinyever.tt.DataModelType;
 import com.example.protegotinyever.util.CustomSdpObserver;
 import com.example.protegotinyever.util.DataChannelHandler;
 
 import org.webrtc.*;
 
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 

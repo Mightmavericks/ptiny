@@ -1,11 +1,11 @@
-package com.example.protegotinyever;
+package com.example.protegotinyever.util;
 
 import android.util.Log;
 import androidx.annotation.NonNull;
-import com.example.protegotinyever.tt.DataModel;
-import com.example.protegotinyever.tt.DataModelType;
-import com.example.protegotinyever.util.SignalingCallback;
-import com.example.protegotinyever.util.SuccessCallback;
+
+import com.example.protegotinyever.inte.SignalingCallback;
+import com.example.protegotinyever.inte.SuccessCallback;
+import com.example.protegotinyever.mode.DataModel;
 import com.google.firebase.database.*;
 
 public class FirebaseClient {

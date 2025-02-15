@@ -1,4 +1,4 @@
-package com.example.protegotinyever.util;
+package com.example.protegotinyever.inte;
 
 public interface ErrorCallback {
     void onError();

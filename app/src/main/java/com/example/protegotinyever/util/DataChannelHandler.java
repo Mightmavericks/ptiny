@@ -2,7 +2,6 @@ package com.example.protegotinyever.util;
 
 import android.util.Log;
 
-import com.example.protegotinyever.ChatActivity;
 import org.webrtc.DataChannel;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
