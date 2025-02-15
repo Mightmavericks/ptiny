@@ -16,7 +16,14 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+    dataBinding {
+            enable = true
+    }
 
+    buildFeatures {
+        dataBinding = true
+        viewBinding = true
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -26,6 +33,7 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -46,4 +54,29 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
+    //Scalable Size Unit(Support for different size screens)
+    implementation (libs.sdp.android)
+
+    // Circular Image
+    implementation (libs.circleimageview)
+
+    // Firebase
+    implementation (libs.firebase.firestore)
+    implementation (libs.firebase.messaging)
+
+    // Multidex
+    implementation (libs.multidex)
+
+    //Country code picker
+    implementation (libs.ccp)
+
+    // Retrofit
+    implementation (libs.retrofit)
+    implementation (libs.converter.scalars)
+
+    // Glide for image loading
+    implementation (libs.glide)
+
+    // Stories ProgressView
+    implementation (libs.storiesprogressview)
 }

@@ -1,8 +1,13 @@
 [versions]
-agp = "8.8.0"
+agp = "8.8.1"
+ccp = "2.6.1"
+circleimageview = "3.1.0"
 firebaseBom = "33.9.0"
 firebaseBomVersion = "33.7.0"
 firebaseDatabaseKtx = "21.0.0"
+firebaseFirestore = "25.1.2"
+firebaseMessaging = "24.1.0"
+glide = "4.15.1"
 googleWebrtc = "1.0.32006"
 googleWebrtcVersion = "1.0.5"
 gson = "2.10.1"
@@ -13,13 +18,23 @@ appcompat = "1.7.0"
 material = "1.12.0"
 activity = "1.10.0"
 constraintlayout = "2.2.0"
+multidex = "2.0.1"
 permissionx = "1.7.0"
+retrofit = "2.9.0"
+sdpAndroid = "1.1.0"
+storiesprogressview = "3.0.0"
 webrtc = "1.0.5"
 
 [libraries]
+ccp = { module = "com.hbb20:ccp", version.ref = "ccp" }
+circleimageview = { module = "de.hdodenhof:circleimageview", version.ref = "circleimageview" }
+converter-scalars = { module = "com.squareup.retrofit2:converter-scalars", version.ref = "retrofit" }
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
 firebase-bom-v3370 = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBomVersion" }
 firebase-database-ktx = { module = "com.google.firebase:firebase-database-ktx", version.ref = "firebaseDatabaseKtx" }
+firebase-firestore = { module = "com.google.firebase:firebase-firestore", version.ref = "firebaseFirestore" }
+firebase-messaging = { module = "com.google.firebase:firebase-messaging", version.ref = "firebaseMessaging" }
+glide = { module = "com.github.bumptech.glide:glide", version.ref = "glide" }
 google-webrtc = { module = "org.webrtc:google-webrtc", version.ref = "googleWebrtc" }
 google-webrtc-v105 = { module = "org.webrtc:google-webrtc", version.ref = "googleWebrtcVersion" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
@@ -30,7 +45,11 @@ appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "a
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 activity = { group = "androidx.activity", name = "activity", version.ref = "activity" }
 constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
+multidex = { module = "androidx.multidex:multidex", version.ref = "multidex" }
 permissionx = { module = "com.guolindev.permissionx:permissionx", version.ref = "permissionx" }
+retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
+sdp-android = { module = "com.intuit.sdp:sdp-android", version.ref = "sdpAndroid" }
+storiesprogressview = { module = "com.github.shts:StoriesProgressView", version.ref = "storiesprogressview" }
 webrtc = { module = "com.mesibo.api:webrtc", version.ref = "webrtc" }
 
 [plugins]
