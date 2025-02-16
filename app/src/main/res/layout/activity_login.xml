@@ -15,6 +15,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Enter Username" />
+        <EditText
+            android:id="@+id/phoneInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Enter Phone Number"
+            android:inputType="phone"
+            android:padding="10dp"/>
+
 
         <Button
             android:id="@+id/loginButton"

@@ -8,6 +8,11 @@
           <targets>
             <Target type="DEFAULT_BOOT">
               <handle>
+                <DeviceId pluginId="PhysicalDevice" identifier="serial=10BD3N0DGR003A8" />
+              </handle>
+            </Target>
+            <Target type="DEFAULT_BOOT">
+              <handle>
                 <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\AlphaMJ\.android\avd\Pixel_3a_API_31.avd" />
               </handle>
             </Target>

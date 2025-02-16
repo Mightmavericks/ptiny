@@ -6,33 +6,87 @@ import androidx.annotation.NonNull;
 import com.example.protegotinyever.inte.SignalingCallback;
 import com.example.protegotinyever.inte.SuccessCallback;
 import com.example.protegotinyever.mode.DataModel;
+import com.example.protegotinyever.tt.UserModel;
 import com.google.firebase.database.*;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class FirebaseClient {
     private final DatabaseReference dbRef = FirebaseDatabase.getInstance().getReference();
-    private String currentUser;
+    private final String currentUser;
+    private final String currentUserPhone;
 
-    public FirebaseClient(String username) {
+    public FirebaseClient(String username, String currentUserPhone) {
         this.currentUser = username;
+        this.currentUserPhone = currentUserPhone;
     }
 
-    // ✅ Save username to database
-    public void saveUsername(SuccessCallback callback) {
-        dbRef.child("users").child(currentUser).setValue(true)
+    // ✅ Save user data (username + phoneNumber + isOnline)
+    public void saveUser(String username, String phoneNumber, boolean isOnline, SuccessCallback callback) {
+        Map<String, Object> userMap = new HashMap<>();
+        userMap.put("username", username);
+        userMap.put("phoneNumber", phoneNumber);  // ✅ Ensure correct field name
+        userMap.put("isOnline", isOnline);
+
+        dbRef.child("users").child(username).setValue(userMap)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
+                        Log.d("Firebase", "✅ User saved: " + username + ", Phone: " + phoneNumber);
                         callback.onSuccess();
+                    } else {
+                        Log.e("Firebase", "❌ Failed to save user.");
                     }
                 });
     }
 
-    // ✅ Send signaling data (Appends instead of overwriting)
-    private String lastSentIceCandidate = ""; // Stores the last sent ICE candidate
 
+    // ✅ Fetch all registered users
+    public void getRegisteredUsers(UserListCallback callback) {
+        dbRef.child("users").addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                List<UserModel> users = new ArrayList<>();
+                for (DataSnapshot userSnapshot : snapshot.getChildren()) {
+                    String username = userSnapshot.child("username").getValue(String.class);
+                    String phone = userSnapshot.child("phoneNumber").getValue(String.class); // ✅ Correct key
+
+                    if (username != null && phone != null) {
+                        users.add(new UserModel(username, phone));
+                        Log.d("Firebase", "✅ Fetched User: " + username + ", Phone: " + phone); // ✅ Log to verify
+                    } else {
+                        Log.e("Firebase", "⚠️ User data missing phone or username!");
+                    }
+                }
+                callback.onUsersFetched(users);
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("Firebase", "❌ Error fetching users: " + error.getMessage());
+            }
+        });
+    }
+
+    public String getCurrentUserPhone() {
+        Log.d("FirebaseClient", "🔍 Returning Current User Phone: " + currentUserPhone);
+        return this.currentUserPhone;
+    }
+
+
+
+
+
+
+
+
+
+
+    // ✅ Send signaling data
     public void sendSignalingData(String peerUsername, String type, String data) {
         DataModel message = new DataModel(type, currentUser, peerUsername, data);
-
-        // ✅ Store in "signaling/{peerUsername}/data" instead of overwriting entire "signaling/{peerUsername}"
         dbRef.child("signaling").child(peerUsername).child("data").setValue(message)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
@@ -43,9 +97,7 @@ public class FirebaseClient {
                 });
     }
 
-
-
-    // ✅ Listen for signaling messages and remove them after reading
+    // ✅ Listen for signaling messages
     public void listenForSignaling(SignalingCallback callback) {
         dbRef.child("signaling").child(currentUser).child("data")
                 .addValueEventListener(new ValueEventListener() {
@@ -55,16 +107,12 @@ public class FirebaseClient {
                             try {
                                 DataModel message = snapshot.getValue(DataModel.class);
                                 if (message != null) {
-                                    Log.d("FirebaseClient", "✅ Received signaling message: " + message.getType() + " - " + message.getData());
                                     callback.onSignalingReceived(message.getType(), message.getData());
-                                } else {
-                                    Log.e("FirebaseClient", "❌ DataModel is null!");
+                                    dbRef.child("signaling").child(currentUser).child("data").removeValue(); // ✅ Delete after processing
                                 }
                             } catch (Exception e) {
                                 Log.e("FirebaseClient", "❌ Error parsing DataModel: " + e.getMessage());
                             }
-                        } else {
-                            Log.e("FirebaseClient", "⚠️ Snapshot is empty! No signaling data.");
                         }
                     }
 
@@ -74,5 +122,4 @@ public class FirebaseClient {
                     }
                 });
     }
-
 }
