@@ -1,6 +1,7 @@
 package com.example.protegotinyever.act;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -10,16 +11,12 @@ import android.provider.ContactsContract;
 import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
-import android.widget.Toast;
-
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-
-import com.example.protegotinyever.act.ChatActivity;
 import com.example.protegotinyever.tt.UserAdapter;
 import com.example.protegotinyever.tt.UserModel;
 import com.example.protegotinyever.util.DataChannelHandler;
@@ -27,10 +24,8 @@ import com.example.protegotinyever.util.FirebaseClient;
 import com.example.protegotinyever.tt.DataModelType;
 import com.example.protegotinyever.util.CustomSdpObserver;
 import com.example.protegotinyever.R;
-import com.example.protegotinyever.util.UserListCallback;
-
 import org.webrtc.*;
-
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,14 +34,13 @@ public class ConnectActivity extends AppCompatActivity {
     private PeerConnection peerConnection;
     private DataChannel dataChannel;
     private RecyclerView contactsRecyclerView;
-    private TextView noUsersText;
+    private TextView noUsersText, dataChannelStatus;
     private List<UserModel> availableContacts = new ArrayList<>();
     private UserAdapter contactsAdapter;
-    private String peerUsername;
+    private String peerUsername, currentUser, currentUserPhone;
     private static final int CONTACTS_PERMISSION_CODE = 100;
-    private String currentUser;
-    private String phno="";
 
+    @SuppressLint("MissingInflatedId")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -54,34 +48,41 @@ public class ConnectActivity extends AppCompatActivity {
 
         contactsRecyclerView = findViewById(R.id.contactsRecyclerView);
         noUsersText = findViewById(R.id.noUsersText);
+        dataChannelStatus = findViewById(R.id.dataconnstatus);
+
         contactsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+
         currentUser = getIntent().getStringExtra("username");
-        firebaseClient = new FirebaseClient(currentUser,getIntent().getStringExtra("phoneNumber"));
+        currentUserPhone = getIntent().getStringExtra("phoneNumber");
+        firebaseClient = new FirebaseClient(currentUser, currentUserPhone);
+
         checkContactsPermission();
-        fetchContactsAndCheckUsers();
-        Log.d("Match", "Total Matched Contacts: " + availableContacts.size());
 
+        initializePeerConnectionFactory();
+        // ✅ Auto-listen for WebRTC signaling
+        firebaseClient.listenForSignaling((type, data, sender) -> {
+            peerUsername = sender; // ✅ Store sender's username
 
-
-        firebaseClient.listenForSignaling((type, data) -> {
             switch (type) {
                 case DataModelType.OFFER:
-                    Log.d("WebRTC", "📩 Received Offer!");
+                    Log.d("WebRTC", "📩 Received Offer from " + peerUsername);
                     setupPeerConnection();
                     receiveOffer(data);
                     break;
                 case DataModelType.ANSWER:
-                    Log.d("WebRTC", "📩 Received Answer!");
+                    Log.d("WebRTC", "📩 Received Answer from " + peerUsername);
                     receiveAnswer(data);
                     break;
                 case DataModelType.ICE:
-                    Log.d("WebRTC", "📩 Received ICE Candidate!");
+                    Log.d("WebRTC", "📩 Received ICE Candidate from " + peerUsername);
                     receiveIceCandidate(data);
                     break;
             }
         });
+
     }
 
+    // ✅ Check Contacts Permission
     private void checkContactsPermission() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CONTACTS}, CONTACTS_PERMISSION_CODE);
@@ -89,63 +90,51 @@ public class ConnectActivity extends AppCompatActivity {
             fetchContactsAndCheckUsers();
         }
     }
+    private void initializePeerConnectionFactory() {
+        PeerConnectionFactory.initialize(
+                PeerConnectionFactory.InitializationOptions.builder(this).createInitializationOptions()
+        );
+    }
 
+    // ✅ Request Permission Result Handling
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == CONTACTS_PERMISSION_CODE && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            fetchContactsAndCheckUsers();
+        }
+    }
+
+    // ✅ Fetch contacts and check for registered users
     private void fetchContactsAndCheckUsers() {
         List<String> phoneContacts = getDeviceContacts();
-        Log.d("Match", "📌 Contacts List: " + phoneContacts);
-
         firebaseClient.getRegisteredUsers(users -> {
             availableContacts.clear();
-            String currentUserPhone = firebaseClient.getCurrentUserPhone(); // ✅ Get current user's phone
 
             for (UserModel user : users) {
-                String phone = user.getPhone();
+                if (user.getPhone() == null) continue;
 
-                if (phone == null) {
-                    Log.e("Match", "⚠️ Skipping user " + user.getUsername() + " due to null phone number!");
-                    continue;
-                }
+                String formattedPhone = formatPhoneNumber(user.getPhone());
+                String formattedCurrentUserPhone = formatPhoneNumber(currentUserPhone);
 
-                // ✅ Normalize Phone Numbers (Remove +91 or any country code)
-                String formattedPhone = phone.replaceAll("[^0-9]", "");
-                if (formattedPhone.length() > 10) {
-                    formattedPhone = formattedPhone.substring(formattedPhone.length() - 10);
-                }
-
-                String formattedCurrentUserPhone = currentUserPhone.replaceAll("[^0-9]", "");
-                if (formattedCurrentUserPhone.length() > 10) {
-                    formattedCurrentUserPhone = formattedCurrentUserPhone.substring(formattedCurrentUserPhone.length() - 10);
-                }
-
-                Log.d("Match", "🔍 Checking Firebase User: " + user.getUsername() + ", Phone: " + formattedPhone);
-                Log.d("Match", "🔍 Comparing With Current User Phone: " + formattedCurrentUserPhone);
-
-                // ✅ Skip if the user is **the current user**
-                if (formattedPhone.equals(formattedCurrentUserPhone)) {
-                    Log.d("Match", "🚫 Skipping self: " + user.getUsername());
-                    continue;
-                }
-
-                if (phoneContacts.contains(formattedPhone)) {
+                if (!formattedPhone.equals(formattedCurrentUserPhone) && phoneContacts.contains(formattedPhone)) {
                     availableContacts.add(user);
-                    Log.d("Match", "✅ Match Found: " + user.getUsername());
                 }
             }
-
-            Log.d("Match", "✅ Total Matched Contacts (excluding self): " + availableContacts.size());
             runOnUiThread(this::updateUI);
         });
     }
 
+    // ✅ Format Phone Number (remove country code, spaces, etc.)
+    private String formatPhoneNumber(String phone) {
+        phone = phone.replaceAll("[^0-9]", ""); // Remove non-numeric characters
+        if (phone.length() > 10) {
+            return phone.substring(phone.length() - 10); // Keep last 10 digits
+        }
+        return phone;
+    }
 
-
-
-
-
-
-
-
-
+    // ✅ Get Device Contacts
     private List<String> getDeviceContacts() {
         List<String> contactList = new ArrayList<>();
         ContentResolver cr = getContentResolver();
@@ -155,12 +144,7 @@ public class ConnectActivity extends AppCompatActivity {
             int columnIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER);
             if (columnIndex != -1) {
                 while (cursor.moveToNext()) {
-                    String phoneNumber = cursor.getString(columnIndex);
-                    phoneNumber = phoneNumber.replaceAll("[^0-9]", ""); // ✅ Remove spaces, dashes, and parentheses
-                    if (phoneNumber.length() > 10) {
-                        phoneNumber = phoneNumber.substring(phoneNumber.length() - 10); // ✅ Keep only last 10 digits
-                    }
-                    contactList.add(phoneNumber);
+                    contactList.add(formatPhoneNumber(cursor.getString(columnIndex)));
                 }
             }
             cursor.close();
@@ -168,18 +152,13 @@ public class ConnectActivity extends AppCompatActivity {
         return contactList;
     }
 
-
-
-
-
+    // ✅ Update UI
     private void updateUI() {
         runOnUiThread(() -> {
             if (availableContacts.isEmpty()) {
-                Log.e("Match", "❌ No contacts matched!");
                 noUsersText.setVisibility(View.VISIBLE);
                 contactsRecyclerView.setVisibility(View.GONE);
             } else {
-                Log.d("Match", "✅ Updating UI with matched contacts!");
                 noUsersText.setVisibility(View.GONE);
                 contactsRecyclerView.setVisibility(View.VISIBLE);
                 contactsAdapter = new UserAdapter(availableContacts, this::onContactClicked);
@@ -188,16 +167,26 @@ public class ConnectActivity extends AppCompatActivity {
         });
     }
 
-
+    // ✅ Handle Contact Click - Auto Start WebRTC
     private void onContactClicked(UserModel contact) {
         peerUsername = contact.getUsername();
+
+        if (peerUsername == null || peerUsername.isEmpty()) {
+            Log.e("WebRTC", "❌ ERROR: peerUsername is NULL or EMPTY!");
+            return;
+        }
+
+        Log.d("WebRTC", "👤 Contact clicked: " + peerUsername);
         setupPeerConnection();
         createOffer();
     }
 
+
+    // ✅ Setup WebRTC Peer Connection
     private void setupPeerConnection() {
         PeerConnectionFactory peerConnectionFactory = PeerConnectionFactory.builder().createPeerConnectionFactory();
         PeerConnection.IceServer stunServer = PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer();
+
         ArrayList<PeerConnection.IceServer> iceServers = new ArrayList<>();
         iceServers.add(stunServer);
         PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
@@ -205,8 +194,6 @@ public class ConnectActivity extends AppCompatActivity {
         peerConnection = peerConnectionFactory.createPeerConnection(rtcConfig, new PeerConnection.Observer() {
             @Override
             public void onIceCandidate(IceCandidate iceCandidate) {
-                if (peerConnection == null) return;
-                Log.d("WebRTC", "📤 Sending ICE Candidate!");
                 firebaseClient.sendSignalingData(peerUsername, DataModelType.ICE,
                         iceCandidate.sdp + "," + iceCandidate.sdpMid + "," + iceCandidate.sdpMLineIndex);
             }
@@ -216,36 +203,74 @@ public class ConnectActivity extends AppCompatActivity {
                 Log.d("WebRTC", "✅ DataChannel established!");
                 dataChannel = dc;
                 DataChannelHandler.getInstance().setDataChannel(dc);
+
+                dc.registerObserver(new DataChannel.Observer() {
+                    @Override
+                    public void onBufferedAmountChange(long l) {}
+
+                    @Override
+                    public void onStateChange() {
+                        Log.d("WebRTC", "⚡ DataChannel state changed: " + dc.state());
+
+                        runOnUiThread(() -> {
+                            if (dataChannelStatus != null) {  // ✅ Prevent NullPointerException
+                                dataChannelStatus.setText(dc.state().toString());
+                            } else {
+                                Log.e("WebRTC", "❌ ERROR: dataChannelStatusText is NULL!");
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onMessage(DataChannel.Buffer buffer) {}
+                });
+            }
+
+
+            @Override
+            public void onSignalingChange(PeerConnection.SignalingState signalingState) {
+
             }
 
             @Override
-            public void onSignalingChange(PeerConnection.SignalingState signalingState) {}
-
-            @Override
             public void onIceConnectionChange(PeerConnection.IceConnectionState iceConnectionState) {
+                Log.d("WebRTC", "🔄 ICE connection state changed: " + iceConnectionState);
+
                 if (iceConnectionState == PeerConnection.IceConnectionState.CONNECTED) {
-                    Log.d("WebRTC", "✅ WebRTC Connection Established!");
+                    Log.d("WebRTC", "✅ WebRTC connection successfully established!");
+
                     runOnUiThread(() -> {
+                        Log.d("WebRTC", "📌 Navigating to ChatActivity with peer: " + peerUsername);
+
+                        if (peerUsername == null || peerUsername.isEmpty()) {
+                            Log.e("WebRTC", "❌ Error: peerUsername is NULL or EMPTY! Cannot open ChatActivity.");
+                            return;
+                        }
+
                         Intent intent = new Intent(ConnectActivity.this, ChatActivity.class);
                         intent.putExtra("peerUsername", peerUsername);
                         startActivity(intent);
                         finish();
                     });
+                } else if (iceConnectionState == PeerConnection.IceConnectionState.FAILED) {
+                    Log.e("WebRTC", "❌ WebRTC connection failed! Retrying...");
                 }
             }
+
 
             @Override
             public void onStandardizedIceConnectionChange(PeerConnection.IceConnectionState newState) {
                 PeerConnection.Observer.super.onStandardizedIceConnectionChange(newState);
             }
 
-            @Override
-            public void onConnectionChange(PeerConnection.PeerConnectionState newState) {}
 
             @Override
-            public void onIceConnectionReceivingChange(boolean b) {
-
+            public void onConnectionChange(PeerConnection.PeerConnectionState newState) {
+                Log.d("WebRTC", "Peer connection state changed: " + newState);
             }
+
+            @Override
+            public void onIceConnectionReceivingChange(boolean b) {}
 
             @Override
             public void onIceGatheringChange(PeerConnection.IceGatheringState iceGatheringState) {}
@@ -254,7 +279,9 @@ public class ConnectActivity extends AppCompatActivity {
             public void onIceCandidatesRemoved(IceCandidate[] iceCandidates) {}
 
             @Override
-            public void onSelectedCandidatePairChanged(CandidatePairChangeEvent event) {}
+            public void onSelectedCandidatePairChanged(CandidatePairChangeEvent event) {
+                PeerConnection.Observer.super.onSelectedCandidatePairChanged(event);
+            }
 
             @Override
             public void onAddStream(MediaStream mediaStream) {}
@@ -269,33 +296,108 @@ public class ConnectActivity extends AppCompatActivity {
             public void onAddTrack(RtpReceiver rtpReceiver, MediaStream[] mediaStreams) {}
 
             @Override
-            public void onTrack(RtpTransceiver transceiver) {}
+            public void onTrack(RtpTransceiver transceiver) {
+                PeerConnection.Observer.super.onTrack(transceiver);
+            }
         });
 
         dataChannel = peerConnection.createDataChannel("chat", new DataChannel.Init());
         DataChannelHandler.getInstance().setDataChannel(dataChannel);
     }
 
+    private boolean hasSentOffer = false; // ✅ Prevent multiple offers
+
     private void createOffer() {
+        if (hasSentOffer) {
+            Log.d("WebRTC", "🚫 Offer already sent, skipping...");
+            return;
+        }
+
+        Log.d("WebRTC", "📡 Creating WebRTC offer...");
         peerConnection.createOffer(new CustomSdpObserver() {
             @Override
             public void onCreateSuccess(SessionDescription sessionDescription) {
                 peerConnection.setLocalDescription(new CustomSdpObserver(), sessionDescription);
                 firebaseClient.sendSignalingData(peerUsername, DataModelType.OFFER, sessionDescription.description);
+                hasSentOffer = true; // ✅ Mark offer as sent
             }
         }, new MediaConstraints());
     }
 
-    private void receiveOffer(String sdp) {
-        peerConnection.setRemoteDescription(new CustomSdpObserver(), new SessionDescription(SessionDescription.Type.OFFER, sdp));
+
+
+    private void retryIceConnection() {
+        if (peerConnection != null) {
+            Log.d("WebRTC", "Retrying ICE connection...");
+            peerConnection.close();
+            setupPeerConnection();
+            createOffer(); // Restart WebRTC connection
+        }
     }
+    private List<IceCandidate> queuedIceCandidates = new ArrayList<>();
+
+    private void receiveOffer(String sdp) {
+        Log.d("WebRTC", "📩 Received offer!");
+
+        SessionDescription offer = new SessionDescription(SessionDescription.Type.OFFER, sdp);
+        peerConnection.setRemoteDescription(new CustomSdpObserver() {
+            @Override
+            public void onSetSuccess() {
+                Log.d("WebRTC", "✅ Remote offer set. Creating answer...");
+
+                peerConnection.createAnswer(new CustomSdpObserver() {
+                    @Override
+                    public void onCreateSuccess(SessionDescription sessionDescription) {
+                        peerConnection.setLocalDescription(new CustomSdpObserver(), sessionDescription);
+                        firebaseClient.sendSignalingData(peerUsername, DataModelType.ANSWER, sessionDescription.description);
+                        Log.d("WebRTC", "📡 Answer sent to: " + peerUsername);
+                    }
+                }, new MediaConstraints());
+            }
+        }, offer);
+    }
+
+
+
+
 
     private void receiveAnswer(String sdp) {
-        peerConnection.setRemoteDescription(new CustomSdpObserver(), new SessionDescription(SessionDescription.Type.ANSWER, sdp));
+        Log.d("WebRTC", "📩 Received Answer! Setting remote description...");
+
+        if (peerConnection == null) {
+            Log.e("WebRTC", "❌ PeerConnection is null in receiveAnswer! Initializing...");
+            setupPeerConnection();
+        }
+
+        peerConnection.setRemoteDescription(new CustomSdpObserver() {
+            @Override
+            public void onSetSuccess() {
+                Log.d("WebRTC", "✅ Remote answer set successfully! Connection should now be established.");
+            }
+        }, new SessionDescription(SessionDescription.Type.ANSWER, sdp));
     }
 
+
     private void receiveIceCandidate(String data) {
+        if (peerConnection == null) return;
+
+        if (peerConnection.getRemoteDescription() == null) {
+            Log.e("WebRTC", "❌ Remote description is null! Waiting to add ICE candidate.");
+            return; // 🚨 Avoid adding ICE candidates before remote description is set
+        }
+
         String[] parts = data.split(",");
-        peerConnection.addIceCandidate(new IceCandidate(parts[1], Integer.parseInt(parts[2]), parts[0]));
+        if (parts.length == 3) {
+            IceCandidate iceCandidate = new IceCandidate(parts[1], Integer.parseInt(parts[2]), parts[0]);
+            peerConnection.addIceCandidate(iceCandidate);
+            Log.d("WebRTC", "✅ ICE Candidate added: " + iceCandidate.sdp);
+        } else {
+            Log.e("WebRTC", "❌ Invalid ICE candidate format: " + data);
+        }
     }
+
+
+
+
+
 }

@@ -2,10 +2,13 @@ package com.example.protegotinyever.util;
 
 import android.util.Log;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import com.example.protegotinyever.inte.SignalingCallback;
 import com.example.protegotinyever.inte.SuccessCallback;
 import com.example.protegotinyever.mode.DataModel;
+import com.example.protegotinyever.mode.UserListCallback;
+import com.example.protegotinyever.tt.DataModelType;
 import com.example.protegotinyever.tt.UserModel;
 import com.google.firebase.database.*;
 
@@ -87,7 +90,10 @@ public class FirebaseClient {
     // ✅ Send signaling data
     public void sendSignalingData(String peerUsername, String type, String data) {
         DataModel message = new DataModel(type, currentUser, peerUsername, data);
-        dbRef.child("signaling").child(peerUsername).child("data").setValue(message)
+
+        dbRef.child("signaling").child(peerUsername).child("data")
+                .push()  // ✅ Push instead of setValue to avoid overwriting
+                .setValue(message)
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         Log.d("FirebaseClient", "✅ Signaling data sent: " + type);
@@ -97,18 +103,21 @@ public class FirebaseClient {
                 });
     }
 
+
     // ✅ Listen for signaling messages
     public void listenForSignaling(SignalingCallback callback) {
         dbRef.child("signaling").child(currentUser).child("data")
-                .addValueEventListener(new ValueEventListener() {
+                .addChildEventListener(new ChildEventListener() {
                     @Override
-                    public void onDataChange(@NonNull DataSnapshot snapshot) {
+                    public void onChildAdded(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {
                         if (snapshot.exists()) {
                             try {
                                 DataModel message = snapshot.getValue(DataModel.class);
                                 if (message != null) {
-                                    callback.onSignalingReceived(message.getType(), message.getData());
-                                    dbRef.child("signaling").child(currentUser).child("data").removeValue(); // ✅ Delete after processing
+                                    Log.d("FirebaseClient", "✅ Received signaling message: " + message.getType() + " - " + message.getData());
+                                    callback.onSignalingReceived(message.getType(), message.getData(), message.getSender()); // ✅ Include sender
+                                } else {
+                                    Log.e("FirebaseClient", "❌ DataModel is null!");
                                 }
                             } catch (Exception e) {
                                 Log.e("FirebaseClient", "❌ Error parsing DataModel: " + e.getMessage());
@@ -117,9 +126,19 @@ public class FirebaseClient {
                     }
 
                     @Override
+                    public void onChildChanged(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
+
+                    @Override
+                    public void onChildRemoved(@NonNull DataSnapshot snapshot) {}
+
+                    @Override
+                    public void onChildMoved(@NonNull DataSnapshot snapshot, @Nullable String previousChildName) {}
+
+                    @Override
                     public void onCancelled(@NonNull DatabaseError error) {
                         Log.e("FirebaseClient", "❌ Error reading signaling data: " + error.getMessage());
                     }
                 });
     }
+
 }

@@ -26,6 +26,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".act.ChatActivity"
+            android:theme="@style/Theme.AppCompat.Light.DarkActionBar"
             android:exported="true"
             />
         <activity android:name=".act.ConnectActivity"
