@@ -21,6 +21,7 @@ constraintlayout = "2.2.0"
 multidex = "2.0.1"
 permissionx = "1.7.0"
 retrofit = "2.9.0"
+roomRuntime = "2.6.1"
 sdpAndroid = "1.1.0"
 storiesprogressview = "3.0.0"
 webrtc = "1.0.5"
@@ -48,6 +49,8 @@ constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayo
 multidex = { module = "androidx.multidex:multidex", version.ref = "multidex" }
 permissionx = { module = "com.guolindev.permissionx:permissionx", version.ref = "permissionx" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
+room-compiler = { module = "androidx.room:room-compiler", version.ref = "roomRuntime" }
+room-runtime = { module = "androidx.room:room-runtime", version.ref = "roomRuntime" }
 sdp-android = { module = "com.intuit.sdp:sdp-android", version.ref = "sdpAndroid" }
 storiesprogressview = { module = "com.github.shts:StoriesProgressView", version.ref = "storiesprogressview" }
 webrtc = { module = "com.mesibo.api:webrtc", version.ref = "webrtc" }

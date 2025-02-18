@@ -60,6 +60,9 @@ dependencies {
     // Circular Image
     implementation (libs.circleimageview)
 
+    implementation (libs.room.runtime)
+    annotationProcessor (libs.room.compiler)
+
     // Firebase
     implementation (libs.firebase.firestore)
     implementation (libs.firebase.messaging)

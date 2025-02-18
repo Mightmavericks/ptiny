@@ -1,26 +1,42 @@
 package com.example.protegotinyever.util;
 
+import android.content.Context;
 import android.util.Log;
+import androidx.room.Room;
+import com.example.protegotinyever.db.ChatDatabase;
+import com.example.protegotinyever.db.MessageDao;
+import com.example.protegotinyever.adapt.MessageEntity;
 import org.webrtc.DataChannel;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.List;
-import java.util.ArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class DataChannelHandler {
     private static DataChannelHandler instance;
     private DataChannel dataChannel;
     private OnMessageReceivedListener messageReceivedListener;
+    private ChatDatabase chatDatabase;
+    private MessageDao messageDao;
+    private final ExecutorService databaseExecutor = Executors.newSingleThreadExecutor();
+    private String currentPeerUsername;
 
-    // 🔥 Store chat history per peer
-    private final HashMap<String, List<String>> messageHistory = new HashMap<>();
-
-    public static DataChannelHandler getInstance() {
+    public static synchronized DataChannelHandler getInstance(Context context) {
         if (instance == null) {
             instance = new DataChannelHandler();
+            instance.setContext(context);
         }
         return instance;
+    }
+
+
+    public void setCurrentPeer(String peerUsername) {
+        this.currentPeerUsername = peerUsername;
+    }
+    private void setContext(Context context) {
+        chatDatabase = ChatDatabase.getInstance(context);
+        messageDao = chatDatabase.messageDao();
     }
 
     public void setDataChannel(DataChannel dataChannel) {
@@ -47,8 +63,8 @@ public class DataChannelHandler {
 
                 Log.d("WebRTC", "📩 Received message from peer: " + message);
 
-                // 🔥 Store received message
-                addMessageToHistory("Peer", message);
+                // ✅ Store received message in database
+                saveMessageToDatabase(currentPeerUsername, message, currentPeerUsername);
 
                 notifyMessageReceived(message);
             }
@@ -67,8 +83,6 @@ public class DataChannelHandler {
         if (messageReceivedListener != null) {
             Log.d("WebRTC", "📩 Notifying ChatActivity of received message: " + message);
             messageReceivedListener.onMessageReceived(message);
-        } else {
-            Log.e("WebRTC", "❌ No listener set in ChatActivity! Message lost.");
         }
     }
 
@@ -80,23 +94,22 @@ public class DataChannelHandler {
             Log.d("WebRTC", "📤 Sending message via DataChannel: " + message);
             dataChannel.send(buffer);
 
-            // 🔥 Store sent message
-            addMessageToHistory("You", message);
+            // ✅ Store sent message in database
+            saveMessageToDatabase("You", message, currentPeerUsername);
         } else {
             Log.e("WebRTC", "❌ DataChannel is NULL or NOT OPEN!");
         }
     }
 
-    // 🔥 Store messages for a user
-    private void addMessageToHistory(String sender, String message) {
-        String peer = sender.equals("You") ? "Peer" : sender;
-        messageHistory.putIfAbsent(peer, new ArrayList<>());
-        messageHistory.get(peer).add(sender + ": " + message);
+    private void saveMessageToDatabase(String sender, String message, String peerUsername) {
+        databaseExecutor.execute(() -> {
+            messageDao.insertMessage(new MessageEntity(sender, message, System.currentTimeMillis(),peerUsername));
+            Log.d("Database", "✅ Message for"+ peerUsername);
+        });
     }
 
-    // 🔥 Retrieve stored messages
-    public List<String> getMessageHistory(String peerUsername) {
-        return messageHistory.getOrDefault(peerUsername, new ArrayList<>());
+    public List<MessageEntity> getMessageHistory(String peerUsername) {
+        return messageDao.getMessagesForPeer(peerUsername);
     }
 
     public void setOnMessageReceivedListener(OnMessageReceivedListener listener) {

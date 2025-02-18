@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.protegotinyever.R;
+import com.example.protegotinyever.adapt.MessageEntity;
 import com.example.protegotinyever.tt.MessageAdapter;
 import com.example.protegotinyever.mode.MessageModel;
 import com.example.protegotinyever.util.DataChannelHandler;
@@ -43,9 +44,10 @@ public class ChatActivity extends AppCompatActivity {
         messageInput = findViewById(R.id.messageInput);
         Button sendButton = findViewById(R.id.sendButton);
 
-        dataChannelHandler = DataChannelHandler.getInstance();
+        dataChannelHandler = DataChannelHandler.getInstance(getApplicationContext());
         currentUser = "You";
         peerUsername = getIntent().getStringExtra("peerUsername");
+        dataChannelHandler.setCurrentPeer(peerUsername);
         if (peerUsername == null || peerUsername.isEmpty()) {
             peerUsername = "Peer";
         }
@@ -57,16 +59,13 @@ public class ChatActivity extends AppCompatActivity {
         chatRecyclerView.setLayoutManager(layoutManager);
         messageAdapter = new MessageAdapter(messageList, currentUser);
         chatRecyclerView.setAdapter(messageAdapter);
-
-        // ✅ Load Previous Messages
-        loadMessageHistory();
-
         sendButton.setOnClickListener(view -> sendMessage());
 
         Log.d("RecyclerView", "Message List Size: " + messageList.size());
 
         // ✅ Ensure DataChannel observer is always registered
         rebindDataChannelObserver();
+        loadMessageHistory();
     }
 
     private void sendMessage() {
@@ -82,12 +81,19 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     private void loadMessageHistory() {
-        List<String> history = dataChannelHandler.getMessageHistory(peerUsername);
-        for (String msg : history) {
-            messageList.add(new MessageModel(peerUsername, msg, System.currentTimeMillis()));
-        }
-        messageAdapter.notifyDataSetChanged();
+        new Thread(() -> {
+            List<MessageEntity> history = dataChannelHandler.getMessageHistory(peerUsername);
+            runOnUiThread(() -> {
+                for (MessageEntity msg : history) {
+                    messageList.add(new MessageModel(msg.getSender(), msg.getMessage(), msg.getTimestamp()));
+                }
+                messageAdapter.notifyDataSetChanged();
+                chatRecyclerView.scrollToPosition(messageList.size() - 1); // Scroll to the latest message
+            });
+        }).start();
     }
+
+
 
     public void addMessageToUI(MessageModel message) {
         runOnUiThread(() -> {
