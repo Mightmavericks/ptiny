@@ -3,11 +3,9 @@ package com.example.protegotinyever.tt;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
-import com.bumptech.glide.Glide;
 import com.example.protegotinyever.R;
 import java.util.List;
 
@@ -30,16 +28,23 @@ public class UserAdapter extends RecyclerView.Adapter<UserAdapter.UserViewHolder
     @Override
     public void onBindViewHolder(@NonNull UserViewHolder holder, int position) {
         UserModel user = userList.get(position);
-        holder.username.setText(user.getUsername());
-        holder.profileImage.setImageResource(R.drawable.avatar3);
+        
+        // Set username and its first letter
+        holder.usernameText.setText(user.getUsername());
+        if (user.getUsername() != null && !user.getUsername().isEmpty()) {
+            holder.usernameLetter.setText(String.valueOf(user.getUsername().charAt(0)).toUpperCase());
+        }
+        
+        // Set phone number
+        holder.phoneText.setText(user.getPhone());
 
-        // ✅ Set online status color
+        // Set connection status
         if (user.isOnline()) {
-            holder.userStatus.setText("Online");
-            holder.userStatus.setTextColor(holder.itemView.getContext().getResources().getColor(R.color.onlineGreen, null));
+            holder.statusIndicator.setText("ACTIVE");
+            holder.statusIndicator.setTextColor(holder.itemView.getContext().getResources().getColor(R.color.success_green, null));
         } else {
-            holder.userStatus.setText("Offline");
-            holder.userStatus.setTextColor(holder.itemView.getContext().getResources().getColor(R.color.offlineGray, null));
+            holder.statusIndicator.setText("CLOSED");
+            holder.statusIndicator.setTextColor(holder.itemView.getContext().getResources().getColor(R.color.error_red, null));
         }
 
         holder.itemView.setOnClickListener(v -> listener.onUserClick(user));
@@ -51,14 +56,14 @@ public class UserAdapter extends RecyclerView.Adapter<UserAdapter.UserViewHolder
     }
 
     public static class UserViewHolder extends RecyclerView.ViewHolder {
-        TextView username, userStatus;
-        ImageView profileImage;
+        TextView usernameText, phoneText, usernameLetter, statusIndicator;
 
         public UserViewHolder(View itemView) {
             super(itemView);
-            username = itemView.findViewById(R.id.userName);
-            userStatus = itemView.findViewById(R.id.userStatus);
-            profileImage = itemView.findViewById(R.id.userProfileImage);
+            usernameText = itemView.findViewById(R.id.usernameText);
+            phoneText = itemView.findViewById(R.id.phoneText);
+            usernameLetter = itemView.findViewById(R.id.usernameLetter);
+            statusIndicator = itemView.findViewById(R.id.statusIndicator);
         }
     }
 

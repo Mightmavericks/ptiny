@@ -17,6 +17,7 @@ public class DataChannelHandler {
     private static DataChannelHandler instance;
     private DataChannel dataChannel;
     private OnMessageReceivedListener messageReceivedListener;
+    private OnStateChangeListener stateChangeListener;
     private ChatDatabase chatDatabase;
     private MessageDao messageDao;
     private final ExecutorService databaseExecutor = Executors.newSingleThreadExecutor();
@@ -30,10 +31,10 @@ public class DataChannelHandler {
         return instance;
     }
 
-
     public void setCurrentPeer(String peerUsername) {
         this.currentPeerUsername = peerUsername;
     }
+
     private void setContext(Context context) {
         chatDatabase = ChatDatabase.getInstance(context);
         messageDao = chatDatabase.messageDao();
@@ -42,6 +43,9 @@ public class DataChannelHandler {
     public void setDataChannel(DataChannel dataChannel) {
         this.dataChannel = dataChannel;
         registerDataChannelObserver();
+        if (dataChannel != null && stateChangeListener != null) {
+            stateChangeListener.onStateChange(dataChannel.state());
+        }
     }
 
     public DataChannel getDataChannel() {
@@ -60,18 +64,16 @@ public class DataChannelHandler {
                 byte[] data = new byte[buffer.data.remaining()];
                 buffer.data.get(data);
                 String message = new String(data, StandardCharsets.UTF_8);
-
-                Log.d("WebRTC", "📩 Received message from peer: " + message);
-
-                // ✅ Store received message in database
                 saveMessageToDatabase(currentPeerUsername, message, currentPeerUsername);
-
                 notifyMessageReceived(message);
             }
 
             @Override
             public void onStateChange() {
                 Log.d("WebRTC", "⚡ DataChannel state changed: " + dataChannel.state());
+                if (stateChangeListener != null) {
+                    stateChangeListener.onStateChange(dataChannel.state());
+                }
             }
 
             @Override
@@ -79,9 +81,19 @@ public class DataChannelHandler {
         });
     }
 
-    public void notifyMessageReceived(String message) {
+    public void setOnMessageReceivedListener(OnMessageReceivedListener listener) {
+        this.messageReceivedListener = listener;
+    }
+
+    public void setStateChangeListener(OnStateChangeListener listener) {
+        this.stateChangeListener = listener;
+        if (dataChannel != null) {
+            listener.onStateChange(dataChannel.state());
+        }
+    }
+
+    private void notifyMessageReceived(String message) {
         if (messageReceivedListener != null) {
-            Log.d("WebRTC", "📩 Notifying ChatActivity of received message: " + message);
             messageReceivedListener.onMessageReceived(message);
         }
     }
@@ -90,21 +102,16 @@ public class DataChannelHandler {
         if (dataChannel != null && dataChannel.state() == DataChannel.State.OPEN) {
             byte[] messageBytes = message.getBytes(StandardCharsets.UTF_8);
             DataChannel.Buffer buffer = new DataChannel.Buffer(ByteBuffer.wrap(messageBytes), false);
-
-            Log.d("WebRTC", "📤 Sending message via DataChannel: " + message);
             dataChannel.send(buffer);
-
-            // ✅ Store sent message in database
             saveMessageToDatabase("You", message, currentPeerUsername);
         } else {
             Log.e("WebRTC", "❌ DataChannel is NULL or NOT OPEN!");
         }
     }
 
-    private void saveMessageToDatabase(String sender, String message, String peerUsername) {
+    public void saveMessageToDatabase(String sender, String message, String peerUsername) {
         databaseExecutor.execute(() -> {
-            messageDao.insertMessage(new MessageEntity(sender, message, System.currentTimeMillis(),peerUsername));
-            Log.d("Database", "✅ Message for"+ peerUsername);
+            messageDao.insertMessage(new MessageEntity(sender, message, System.currentTimeMillis(), peerUsername));
         });
     }
 
@@ -112,13 +119,12 @@ public class DataChannelHandler {
         return messageDao.getMessagesForPeer(peerUsername);
     }
 
-    public void setOnMessageReceivedListener(OnMessageReceivedListener listener) {
-        this.messageReceivedListener = listener;
-        registerDataChannelObserver();
-    }
-
     public interface OnMessageReceivedListener {
         void onMessageReceived(String message);
+    }
+
+    public interface OnStateChangeListener {
+        void onStateChange(DataChannel.State state);
     }
 
     public void close() {

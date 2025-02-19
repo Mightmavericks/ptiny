@@ -5,11 +5,13 @@ import android.util.Log;
 import android.view.MenuItem;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.activity.OnBackPressedCallback;
 
 import com.example.protegotinyever.R;
 import com.example.protegotinyever.adapt.MessageEntity;
@@ -18,6 +20,7 @@ import com.example.protegotinyever.mode.MessageModel;
 import com.example.protegotinyever.util.DataChannelHandler;
 import java.util.ArrayList;
 import java.util.List;
+import org.webrtc.DataChannel;
 
 public class ChatActivity extends AppCompatActivity {
     private RecyclerView chatRecyclerView;
@@ -27,54 +30,134 @@ public class ChatActivity extends AppCompatActivity {
     private DataChannelHandler dataChannelHandler;
     private String currentUser;
     private String peerUsername;
+    private TextView connectionStatus;
+    private Button sendButton;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_chat);
 
-        // ✅ Setup Toolbar with Back Button
-        ActionBar actionBar = getSupportActionBar();
-        if (actionBar != null) {
-            actionBar.setDisplayHomeAsUpEnabled(true);
-            actionBar.setTitle("Chat with " + getIntent().getStringExtra("peerUsername"));
-        }
-
+        // Initialize views
         chatRecyclerView = findViewById(R.id.crv);
         messageInput = findViewById(R.id.messageInput);
-        Button sendButton = findViewById(R.id.sendButton);
+        sendButton = findViewById(R.id.sendButton);
+        connectionStatus = findViewById(R.id.connectionStatus);
 
-        dataChannelHandler = DataChannelHandler.getInstance(getApplicationContext());
+        // Get data from intent
         currentUser = "You";
         peerUsername = getIntent().getStringExtra("peerUsername");
-        dataChannelHandler.setCurrentPeer(peerUsername);
         if (peerUsername == null || peerUsername.isEmpty()) {
             peerUsername = "Peer";
         }
 
-        // ✅ Setup RecyclerView
+        // Setup back press handling
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                // Remove listeners before finishing to prevent memory leaks and crashes
+                if (dataChannelHandler != null) {
+                    dataChannelHandler.setOnMessageReceivedListener(null);
+                    dataChannelHandler.setStateChangeListener(null);
+                }
+                // Just finish the activity, the connection will be preserved
+                finish();
+            }
+        });
+
+        // Setup toolbar
+        setupToolbar();
+
+        // Setup DataChannel
+        setupDataChannel();
+
+        // Setup RecyclerView
+        setupRecyclerView();
+
+        // Setup click listeners
+        sendButton.setOnClickListener(view -> sendMessage());
+
+        // Load message history
+        loadMessageHistory();
+    }
+
+    private void setupToolbar() {
+        TextView peerUsernameView = findViewById(R.id.peerUsername);
+        peerUsernameView.setText(peerUsername.toUpperCase());
+        
+        // Enable back button in toolbar
+        androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            getSupportActionBar().setDisplayShowHomeEnabled(true);
+        }
+    }
+
+    private void setupDataChannel() {
+        dataChannelHandler = DataChannelHandler.getInstance(getApplicationContext());
+        dataChannelHandler.setCurrentPeer(peerUsername);
+        dataChannelHandler.setOnMessageReceivedListener(message -> {
+            addMessageToUI(new MessageModel(peerUsername, message, System.currentTimeMillis()));
+        });
+        dataChannelHandler.setStateChangeListener(state -> {
+            runOnUiThread(() -> updateConnectionStatus(state));
+        });
+
+        // Initial state check
+        if (dataChannelHandler.getDataChannel() != null) {
+            updateConnectionStatus(dataChannelHandler.getDataChannel().state());
+        }
+    }
+
+    private void setupRecyclerView() {
         messageList = new ArrayList<>();
         LinearLayoutManager layoutManager = new LinearLayoutManager(this);
         layoutManager.setStackFromEnd(true);
         chatRecyclerView.setLayoutManager(layoutManager);
         messageAdapter = new MessageAdapter(messageList, currentUser);
         chatRecyclerView.setAdapter(messageAdapter);
-        sendButton.setOnClickListener(view -> sendMessage());
+    }
 
-        Log.d("RecyclerView", "Message List Size: " + messageList.size());
+    private void updateConnectionStatus(DataChannel.State state) {
+        String statusText;
+        int statusColor;
+        boolean enableSend;
 
-        // ✅ Ensure DataChannel observer is always registered
-        rebindDataChannelObserver();
-        loadMessageHistory();
+        switch (state) {
+            case OPEN:
+                statusText = "SECURE CONNECTION ACTIVE";
+                statusColor = getColor(R.color.success_green);
+                enableSend = true;
+                break;
+            case CONNECTING:
+                statusText = "ESTABLISHING CONNECTION";
+                statusColor = getColor(R.color.warning_yellow);
+                enableSend = false;
+                break;
+            case CLOSING:
+            case CLOSED:
+                statusText = "CONNECTION CLOSED";
+                statusColor = getColor(R.color.error_red);
+                enableSend = false;
+                break;
+            default:
+                statusText = "CONNECTION ERROR";
+                statusColor = getColor(R.color.error_red);
+                enableSend = false;
+                break;
+        }
+
+        connectionStatus.setText(statusText);
+        connectionStatus.setTextColor(statusColor);
+        sendButton.setEnabled(enableSend);
+        messageInput.setEnabled(enableSend);
     }
 
     private void sendMessage() {
         String messageText = messageInput.getText().toString().trim();
         if (!messageText.isEmpty()) {
-            Log.d("WebRTC", "📤 Sending message: " + messageText);
             dataChannelHandler.sendMessage(messageText, peerUsername);
-
-            // ✅ Add sent message to UI
             addMessageToUI(new MessageModel(currentUser, messageText, System.currentTimeMillis()));
             messageInput.setText("");
         }
@@ -88,48 +171,36 @@ public class ChatActivity extends AppCompatActivity {
                     messageList.add(new MessageModel(msg.getSender(), msg.getMessage(), msg.getTimestamp()));
                 }
                 messageAdapter.notifyDataSetChanged();
-                chatRecyclerView.scrollToPosition(messageList.size() - 1); // Scroll to the latest message
+                chatRecyclerView.scrollToPosition(messageList.size() - 1);
             });
         }).start();
     }
-
-
 
     public void addMessageToUI(MessageModel message) {
         runOnUiThread(() -> {
             messageList.add(message);
             messageAdapter.notifyItemInserted(messageList.size() - 1);
             chatRecyclerView.scrollToPosition(messageList.size() - 1);
-            Log.d("RecyclerView", "Message List Size: " + messageList.size());
         });
-
-        Log.d("WebRTC", "📩 UI Updated with message: " + message.getText());
     }
 
-    private void rebindDataChannelObserver() {
-        if (dataChannelHandler.getDataChannel() != null) {
-            Log.d("ChatActivity", "✅ Rebinding DataChannel observer");
-            dataChannelHandler.setOnMessageReceivedListener(message -> {
-                addMessageToUI(new MessageModel(peerUsername, message, System.currentTimeMillis()));
-            });
-        } else {
-            Log.e("ChatActivity", "❌ DataChannel is NULL on re-entry!");
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        if (item.getItemId() == android.R.id.home) {
+            getOnBackPressedDispatcher().onBackPressed();
+            return true;
         }
+        return super.onOptionsItemSelected(item);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // ✅ Do NOT close DataChannel here to keep connection alive
-    }
-
-    // ✅ Handle Back Button
-    @Override
-    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        if (item.getItemId() == android.R.id.home) {
-            finish();
-            return true;
+        // Don't close the DataChannel when going back to ConnectActivity
+        // Just remove the message listener to prevent memory leaks
+        if (dataChannelHandler != null) {
+            dataChannelHandler.setOnMessageReceivedListener(null);
+            dataChannelHandler.setStateChangeListener(null);
         }
-        return super.onOptionsItemSelected(item);
     }
 }

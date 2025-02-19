@@ -25,15 +25,16 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity android:name=".act.ChatActivity"
-            android:theme="@style/Theme.AppCompat.Light.DarkActionBar"
-            android:exported="true"
-            />
-        <activity android:name=".act.ConnectActivity"
-            android:exported="true"
-            />
-        <activity android:name=".act.MainActivity"
-            android:exported="true"/>
+        <activity 
+            android:name=".act.ChatActivity"
+            android:theme="@style/Theme.Protegotinyever"
+            android:exported="true" />
+        <activity 
+            android:name=".act.ConnectActivity"
+            android:exported="true" />
+        <activity 
+            android:name=".act.MainActivity"
+            android:exported="true" />
     </application>
 
 </manifest>

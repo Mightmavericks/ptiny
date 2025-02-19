@@ -19,6 +19,7 @@ public class WebRTCClient {
     private WebRTCListener webrtcListener;
     private boolean isConnected = false;
     private final Context context; // ✅ Store Context
+    private boolean hasSentOffer = false;
 
     public static WebRTCClient getInstance(Context context, FirebaseClient firebaseClient) {
         if (instance == null) {
@@ -69,8 +70,8 @@ public class WebRTCClient {
     public void startConnection(String peerUsername) {
         this.peerUsername = peerUsername;
         if (isConnected) {
-            Log.d("WebRTC", "🚫 Already connected, skipping setup.");
-            return;
+            Log.d("WebRTC", "🔄 Resetting existing connection...");
+            cleanup();
         }
         setupPeerConnection();
         createOffer();
@@ -78,15 +79,32 @@ public class WebRTCClient {
 
     private void setupPeerConnection() {
         if (peerConnection != null) {
-            Log.d("WebRTC", "🚫 PeerConnection already exists, skipping setup.");
-            return;
+            peerConnection.close();
+            peerConnection = null;
+            dataChannel = null;
+            hasSentOffer = false;
+            isConnected = false;
+            Log.d("WebRTC", "🔄 Cleaning up existing PeerConnection...");
         }
 
         Log.d("WebRTC", "🔄 Setting up new PeerConnection...");
-        PeerConnection.IceServer stunServer = PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer();
         ArrayList<PeerConnection.IceServer> iceServers = new ArrayList<>();
-        iceServers.add(stunServer);
+        // Add multiple STUN servers for better connectivity
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun.l.google.com:19302").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun1.l.google.com:19302").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun2.l.google.com:19302").createIceServer());
+        iceServers.add(PeerConnection.IceServer.builder("stun:stun3.l.google.com:19302").createIceServer());
+        
         PeerConnection.RTCConfiguration rtcConfig = new PeerConnection.RTCConfiguration(iceServers);
+        // Enable DTLS for secure connection
+        rtcConfig.enableDtlsSrtp = true;
+        // Set SSL role to auto for better compatibility
+        rtcConfig.sdpSemantics = PeerConnection.SdpSemantics.UNIFIED_PLAN;
+        rtcConfig.bundlePolicy = PeerConnection.BundlePolicy.MAXBUNDLE;
+        rtcConfig.rtcpMuxPolicy = PeerConnection.RtcpMuxPolicy.REQUIRE;
+        rtcConfig.continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY;
+        rtcConfig.keyType = PeerConnection.KeyType.ECDSA;
+        rtcConfig.enableDtlsSrtp = true;
 
         peerConnection = peerConnectionFactory.createPeerConnection(rtcConfig, new PeerConnection.Observer() {
             @Override
@@ -99,21 +117,25 @@ public class WebRTCClient {
             public void onDataChannel(DataChannel dc) {
                 Log.d("WebRTC", "✅ DataChannel established!");
                 dataChannel = dc;
-                DataChannelHandler.getInstance(context.getApplicationContext()).setDataChannel(dc); // ✅ Pass Context
+                DataChannelHandler.getInstance(context.getApplicationContext()).setDataChannel(dc);
                 isConnected = true;
-
                 if (webrtcListener != null) webrtcListener.onConnected();
             }
 
             @Override
             public void onIceConnectionChange(PeerConnection.IceConnectionState iceConnectionState) {
                 Log.d("WebRTC", "🔄 ICE connection state changed: " + iceConnectionState);
-                if (iceConnectionState == PeerConnection.IceConnectionState.CONNECTED) {
-                    isConnected = true;
-                    if (webrtcListener != null) webrtcListener.onConnected();
-                } else if (iceConnectionState == PeerConnection.IceConnectionState.FAILED) {
-                    isConnected = false;
-                    if (webrtcListener != null) webrtcListener.onConnectionFailed();
+                switch (iceConnectionState) {
+                    case CONNECTED:
+                        isConnected = true;
+                        if (webrtcListener != null) webrtcListener.onConnected();
+                        break;
+                    case FAILED:
+                    case DISCONNECTED:
+                    case CLOSED:
+                        isConnected = false;
+                        if (webrtcListener != null) webrtcListener.onConnectionFailed();
+                        break;
                 }
             }
 
@@ -138,10 +160,8 @@ public class WebRTCClient {
         });
 
         dataChannel = peerConnection.createDataChannel("chat", new DataChannel.Init());
-        DataChannelHandler.getInstance(context.getApplicationContext()).setDataChannel(dataChannel); // ✅ Pass Context
+        DataChannelHandler.getInstance(context.getApplicationContext()).setDataChannel(dataChannel);
     }
-
-    private boolean hasSentOffer = false;
 
     private void createOffer() {
         if (hasSentOffer) {
@@ -208,6 +228,31 @@ public class WebRTCClient {
 
     public boolean isConnected() {
         return isConnected;
+    }
+
+    public String getPeerUsername() {
+        return peerUsername;
+    }
+
+    public void cleanup() {
+        // Only cleanup if we're explicitly told to do so
+        // This should only happen when the app is being uninstalled or when we want to force a disconnect
+        if (dataChannel != null) {
+            dataChannel.close();
+            dataChannel = null;
+        }
+        if (peerConnection != null) {
+            peerConnection.close();
+            peerConnection = null;
+        }
+        hasSentOffer = false;
+        isConnected = false;
+        DataChannelHandler.getInstance(context.getApplicationContext()).setDataChannel(null);
+    }
+
+    public void disconnect() {
+        // Use this method when you want to explicitly close the connection
+        cleanup();
     }
 
     public interface WebRTCListener {

@@ -10,6 +10,7 @@ import android.provider.ContactsContract;
 import android.util.Log;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
@@ -21,6 +22,7 @@ import com.example.protegotinyever.tt.UserAdapter;
 import com.example.protegotinyever.tt.UserModel;
 import com.example.protegotinyever.util.FirebaseClient;
 import com.example.protegotinyever.webrtc.WebRTCClient;
+import androidx.activity.OnBackPressedCallback;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -49,6 +51,20 @@ public class ConnectActivity extends AppCompatActivity {
         firebaseClient = new FirebaseClient(currentUser, currentUserPhone);
         webRTCClient = WebRTCClient.getInstance(this, firebaseClient);
 
+        // Setup back press handling
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                // Only finish if we're not connected to preserve the connection
+                if (!webRTCClient.isConnected()) {
+                    finish();
+                } else {
+                    // If connected, navigate to chat
+                    navigateToChat(webRTCClient.getPeerUsername());
+                }
+            }
+        });
+
         checkContactsPermission();
         setupWebRTC();
     }
@@ -57,12 +73,25 @@ public class ConnectActivity extends AppCompatActivity {
         webRTCClient.setWebRTCListener(new WebRTCClient.WebRTCListener() {
             @Override
             public void onConnected() {
-                runOnUiThread(() -> updateUI());
+                runOnUiThread(() -> {
+                    TextView scanningText = findViewById(R.id.scanningText);
+                    scanningText.setText("SECURE CONNECTION ACTIVE");
+                    scanningText.setTextColor(getColor(R.color.success_green));
+                    
+                    // Update adapter to refresh status indicators
+                    if (contactsAdapter != null) {
+                        contactsAdapter.notifyDataSetChanged();
+                    }
+                });
             }
 
             @Override
             public void onConnectionFailed() {
-                Log.e("WebRTC", "❌ Connection Failed!");
+                runOnUiThread(() -> {
+                    TextView scanningText = findViewById(R.id.scanningText);
+                    scanningText.setText("CONNECTION FAILED");
+                    scanningText.setTextColor(getColor(R.color.error_red));
+                });
             }
         });
     }
@@ -136,16 +165,50 @@ public class ConnectActivity extends AppCompatActivity {
     }
 
     private void onContactClicked(UserModel user) {
-        if (!webRTCClient.isConnected()) {
-            webRTCClient.startConnection(user.getUsername());
-        } else {
-            navigateToChat(user.getUsername());
+        TextView scanningText = findViewById(R.id.scanningText);
+        
+        if (webRTCClient.isConnected()) {
+            // If already connected, navigate to chat
+            navigateToChat(webRTCClient.getPeerUsername());
+            return;
         }
+
+        // Show connecting state in UI
+        scanningText.setText("ESTABLISHING SECURE CONNECTION...");
+        scanningText.setTextColor(getColor(R.color.warning_yellow));
+        webRTCClient.startConnection(user.getUsername());
     }
 
     private void navigateToChat(String peerUsername) {
         Intent intent = new Intent(this, ChatActivity.class);
         intent.putExtra("peerUsername", peerUsername);
         startActivity(intent);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Update UI based on connection state when returning to this activity
+        if (webRTCClient != null && webRTCClient.isConnected()) {
+            TextView scanningText = findViewById(R.id.scanningText);
+            scanningText.setText("SECURE CONNECTION ACTIVE");
+            scanningText.setTextColor(getColor(R.color.success_green));
+            
+            // Also update the contact list to show connected state
+            if (contactsAdapter != null) {
+                contactsAdapter.notifyDataSetChanged();
+            }
+        }
+        // If not connected, refresh the contacts list
+        else {
+            fetchContactsAndCheckUsers();
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // We don't want to cleanup the WebRTC connection here anymore
+        // The connection should persist until the app is uninstalled
     }
 }
