@@ -18,6 +18,7 @@ import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.example.protegotinyever.R;
+import com.example.protegotinyever.service.WebRTCService;
 import com.example.protegotinyever.tt.UserAdapter;
 import com.example.protegotinyever.tt.UserModel;
 import com.example.protegotinyever.util.FirebaseClient;
@@ -48,20 +49,36 @@ public class ConnectActivity extends AppCompatActivity {
         String currentUser = getIntent().getStringExtra("username");
         String currentUserPhone = getIntent().getStringExtra("phoneNumber");
 
+        // Start WebRTC service to maintain connection
+        Intent serviceIntent = new Intent(this, WebRTCService.class);
+        serviceIntent.putExtra("username", currentUser);
+        serviceIntent.putExtra("phoneNumber", currentUserPhone);
+        startForegroundService(serviceIntent);
+
+        // Initialize Firebase first
         firebaseClient = new FirebaseClient(currentUser, currentUserPhone);
+        
+        // Set initial scanning state before WebRTC setup
+        TextView scanningText = findViewById(R.id.scanningText);
+        
+        // Get WebRTC instance but don't clean up existing connections
         webRTCClient = WebRTCClient.getInstance(this, firebaseClient);
+        
+        // Update UI based on existing connection state
+        if (webRTCClient.isConnected()) {
+            scanningText.setText("SECURE CONNECTION ACTIVE");
+            scanningText.setTextColor(getColor(R.color.success_green));
+        } else {
+            scanningText.setText("SCANNING FOR SECURE PEERS");
+            scanningText.setTextColor(getColor(R.color.accent));
+        }
 
         // Setup back press handling
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                // Only finish if we're not connected to preserve the connection
-                if (!webRTCClient.isConnected()) {
-                    finish();
-                } else {
-                    // If connected, navigate to chat
-                    navigateToChat(webRTCClient.getPeerUsername());
-                }
+                // If connected, just minimize the app instead of disconnecting
+                moveTaskToBack(true);
             }
         });
 
@@ -89,8 +106,16 @@ public class ConnectActivity extends AppCompatActivity {
             public void onConnectionFailed() {
                 runOnUiThread(() -> {
                     TextView scanningText = findViewById(R.id.scanningText);
-                    scanningText.setText("CONNECTION FAILED");
-                    scanningText.setTextColor(getColor(R.color.error_red));
+                    // Only show CONNECTION FAILED if we were actually trying to connect
+                    if (webRTCClient.getPeerUsername() != null && webRTCClient.isAttemptingConnection()) {
+                        scanningText.setText("CONNECTION FAILED");
+                        scanningText.setTextColor(getColor(R.color.error_red));
+                        // Clean up the failed connection attempt
+                        webRTCClient.disconnect();  // Use disconnect instead of cleanup
+                    } else {
+                        scanningText.setText("SCANNING FOR SECURE PEERS");
+                        scanningText.setTextColor(getColor(R.color.accent));
+                    }
                 });
             }
         });
@@ -168,8 +193,13 @@ public class ConnectActivity extends AppCompatActivity {
         TextView scanningText = findViewById(R.id.scanningText);
         
         if (webRTCClient.isConnected()) {
-            // If already connected, navigate to chat
-            navigateToChat(webRTCClient.getPeerUsername());
+            // If already connected to this user, navigate to chat
+            if (user.getUsername().equals(webRTCClient.getPeerUsername())) {
+                navigateToChat(user.getUsername());
+                return;
+            }
+            // If connected to different user, show toast
+            Toast.makeText(this, "Already connected to " + webRTCClient.getPeerUsername(), Toast.LENGTH_SHORT).show();
             return;
         }
 
@@ -188,9 +218,14 @@ public class ConnectActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Update UI based on connection state when returning to this activity
+        // Notify WebRTCClient that we're in foreground
+        if (webRTCClient != null) {
+            webRTCClient.onForeground();
+        }
+        
+        // Update UI based on connection state
+        TextView scanningText = findViewById(R.id.scanningText);
         if (webRTCClient != null && webRTCClient.isConnected()) {
-            TextView scanningText = findViewById(R.id.scanningText);
             scanningText.setText("SECURE CONNECTION ACTIVE");
             scanningText.setTextColor(getColor(R.color.success_green));
             
@@ -198,17 +233,24 @@ public class ConnectActivity extends AppCompatActivity {
             if (contactsAdapter != null) {
                 contactsAdapter.notifyDataSetChanged();
             }
-        }
-        // If not connected, refresh the contacts list
-        else {
+        } else {
+            // Only refresh contacts if not connected
             fetchContactsAndCheckUsers();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Notify WebRTCClient that we're going to background
+        if (webRTCClient != null) {
+            webRTCClient.onBackground();
         }
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // We don't want to cleanup the WebRTC connection here anymore
-        // The connection should persist until the app is uninstalled
+        // Don't disconnect or cleanup here - let the service handle it
     }
 }

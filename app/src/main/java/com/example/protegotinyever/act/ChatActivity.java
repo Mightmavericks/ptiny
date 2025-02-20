@@ -203,4 +203,8 @@ public class ChatActivity extends AppCompatActivity {
             dataChannelHandler.setStateChangeListener(null);
         }
     }
+
+    public String getPeerUsername() {
+        return peerUsername;
+    }
 }

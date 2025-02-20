@@ -18,18 +18,26 @@ public class WebRTCClient {
     private String peerUsername;
     private WebRTCListener webrtcListener;
     private boolean isConnected = false;
+    private boolean isAttemptingConnection = false;
     private final Context context; // ✅ Store Context
     private boolean hasSentOffer = false;
+    private boolean isBackgroundMode = false; // Track if app is in background
 
     public static WebRTCClient getInstance(Context context, FirebaseClient firebaseClient) {
         if (instance == null) {
-            instance = new WebRTCClient(context, firebaseClient);
+            instance = new WebRTCClient(context.getApplicationContext(), firebaseClient); // Use application context
+        } else {
+            // Update the FirebaseClient reference if needed but maintain connection
+            if (instance.firebaseClient == null) {
+                instance.firebaseClient = firebaseClient;
+                instance.listenForSignaling(); // Reattach signaling listeners
+            }
         }
         return instance;
     }
 
     private WebRTCClient(Context context, FirebaseClient firebaseClient) {
-        this.context = context; // ✅ Store context for later use
+        this.context = context.getApplicationContext(); // Use application context to prevent leaks
         this.firebaseClient = firebaseClient;
         initializePeerConnectionFactory(context);
         listenForSignaling();
@@ -69,6 +77,7 @@ public class WebRTCClient {
 
     public void startConnection(String peerUsername) {
         this.peerUsername = peerUsername;
+        this.isAttemptingConnection = true;
         if (isConnected) {
             Log.d("WebRTC", "🔄 Resetting existing connection...");
             cleanup();
@@ -84,6 +93,7 @@ public class WebRTCClient {
             dataChannel = null;
             hasSentOffer = false;
             isConnected = false;
+            isAttemptingConnection = false;
             Log.d("WebRTC", "🔄 Cleaning up existing PeerConnection...");
         }
 
@@ -105,6 +115,8 @@ public class WebRTCClient {
         rtcConfig.continualGatheringPolicy = PeerConnection.ContinualGatheringPolicy.GATHER_CONTINUALLY;
         rtcConfig.keyType = PeerConnection.KeyType.ECDSA;
         rtcConfig.enableDtlsSrtp = true;
+        // Clear any existing ICE candidates
+        rtcConfig.tcpCandidatePolicy = PeerConnection.TcpCandidatePolicy.DISABLED;
 
         peerConnection = peerConnectionFactory.createPeerConnection(rtcConfig, new PeerConnection.Observer() {
             @Override
@@ -128,12 +140,14 @@ public class WebRTCClient {
                 switch (iceConnectionState) {
                     case CONNECTED:
                         isConnected = true;
+                        isAttemptingConnection = false;
                         if (webrtcListener != null) webrtcListener.onConnected();
                         break;
                     case FAILED:
                     case DISCONNECTED:
                     case CLOSED:
                         isConnected = false;
+                        isAttemptingConnection = false;
                         if (webrtcListener != null) webrtcListener.onConnectionFailed();
                         break;
                 }
@@ -234,9 +248,8 @@ public class WebRTCClient {
         return peerUsername;
     }
 
-    public void cleanup() {
-        // Only cleanup if we're explicitly told to do so
-        // This should only happen when the app is being uninstalled or when we want to force a disconnect
+    public void disconnect() {
+        // Only disconnect if explicitly requested (e.g., user logs out)
         if (dataChannel != null) {
             dataChannel.close();
             dataChannel = null;
@@ -247,16 +260,46 @@ public class WebRTCClient {
         }
         hasSentOffer = false;
         isConnected = false;
-        DataChannelHandler.getInstance(context.getApplicationContext()).setDataChannel(null);
+        isAttemptingConnection = false;
+        peerUsername = null;
+        DataChannelHandler.getInstance(context).setDataChannel(null);
+        firebaseClient = null;
     }
 
-    public void disconnect() {
-        // Use this method when you want to explicitly close the connection
-        cleanup();
+    public boolean isAttemptingConnection() {
+        return isAttemptingConnection;
     }
 
     public interface WebRTCListener {
         void onConnected();
         void onConnectionFailed();
+    }
+
+    public static void cleanup() {
+        // Only use cleanup when completely shutting down the app or logging out
+        if (instance != null) {
+            instance.disconnect();
+            instance = null;
+        }
+    }
+
+    // Call this when app goes to background
+    public void onBackground() {
+        isBackgroundMode = true;
+        // Don't disconnect, just update state
+        if (dataChannel != null && isConnected) {
+            Log.d("WebRTC", "App going to background, maintaining connection");
+        }
+    }
+
+    // Call this when app comes to foreground
+    public void onForeground() {
+        isBackgroundMode = false;
+        if (isConnected && dataChannel != null) {
+            Log.d("WebRTC", "App returning to foreground, connection maintained");
+            if (webrtcListener != null) {
+                webrtcListener.onConnected(); // Notify UI of existing connection
+            }
+        }
     }
 }
