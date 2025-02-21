@@ -82,7 +82,7 @@ public class DataChannelHandler {
                 
                 Log.d("WebRTC", "📥 Message received: " + message + " from peer: " + currentPeerUsername);
                 
-                // Save message synchronously
+                // Save message synchronously and then notify
                 MessageEntity messageEntity = new MessageEntity(
                     currentPeerUsername != null ? currentPeerUsername : "Unknown",
                     message,
@@ -99,13 +99,22 @@ public class DataChannelHandler {
                     
                     Log.d("WebRTC", "💾 Message saved to database - From: " + currentPeerUsername);
                     
-                    // After successful save, notify on main thread
-                    if (messageReceivedListener != null) {
-                        final String finalPeer = currentPeerUsername != null ? currentPeerUsername : "Unknown";
-                        new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                    // After successful save, notify listeners on main thread
+                    final String finalPeer = currentPeerUsername != null ? currentPeerUsername : "Unknown";
+                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                        // First notify message listener for UI updates
+                        if (messageReceivedListener != null) {
                             messageReceivedListener.onMessageReceived(message);
-                        });
-                    }
+                        }
+                        
+                        // Then notify WebRTCClient for notification handling
+                        if (webRTCClient != null) {
+                            webRTCClient.onMessageReceived(message, finalPeer);
+                            Log.d("WebRTC", "🔔 Forwarded message to WebRTCClient for notification");
+                        } else {
+                            Log.e("WebRTC", "❌ WebRTCClient reference is null, cannot forward for notification");
+                        }
+                    });
                 } catch (Exception e) {
                     Log.e("WebRTC", "Error saving message: " + e.getMessage());
                 }

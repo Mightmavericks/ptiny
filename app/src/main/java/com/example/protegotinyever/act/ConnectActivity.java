@@ -192,21 +192,25 @@ public class ConnectActivity extends AppCompatActivity {
     private void onContactClicked(UserModel user) {
         TextView scanningText = findViewById(R.id.scanningText);
         
+        // If already connected to this user, navigate to chat
+        if (webRTCClient.isConnected() && user.getUsername().equals(webRTCClient.getPeerUsername())) {
+            navigateToChat(user.getUsername());
+            return;
+        }
+        
+        // If connected to different user, show toast
         if (webRTCClient.isConnected()) {
-            // If already connected to this user, navigate to chat
-            if (user.getUsername().equals(webRTCClient.getPeerUsername())) {
-                navigateToChat(user.getUsername());
-                return;
-            }
-            // If connected to different user, show toast
             Toast.makeText(this, "Already connected to " + webRTCClient.getPeerUsername(), Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Show connecting state in UI
-        scanningText.setText("ESTABLISHING SECURE CONNECTION...");
-        scanningText.setTextColor(getColor(R.color.warning_yellow));
-        webRTCClient.startConnection(user.getUsername());
+        // Only try to establish connection if not already connected
+        if (!webRTCClient.isConnected() && !webRTCClient.isAttemptingConnection()) {
+            // Show connecting state in UI
+            scanningText.setText("ESTABLISHING SECURE CONNECTION...");
+            scanningText.setTextColor(getColor(R.color.warning_yellow));
+            webRTCClient.startConnection(user.getUsername());
+        }
     }
 
     private void navigateToChat(String peerUsername) {

@@ -2,6 +2,8 @@ package com.example.protegotinyever.webrtc;
 
 import android.content.Context;
 import android.util.Log;
+
+import com.example.protegotinyever.service.WebRTCService;
 import com.example.protegotinyever.tt.DataModelType;
 import com.example.protegotinyever.util.CustomSdpObserver;
 import com.example.protegotinyever.util.DataChannelHandler;
@@ -22,6 +24,7 @@ public class WebRTCClient {
     private final Context context; // ✅ Store Context
     private boolean hasSentOffer = false;
     private boolean isBackgroundMode = false; // Track if app is in background
+    private WebRTCService webRTCService;
 
     public static WebRTCClient getInstance(Context context, FirebaseClient firebaseClient) {
         if (instance == null) {
@@ -301,5 +304,17 @@ public class WebRTCClient {
                 webrtcListener.onConnected(); // Notify UI of existing connection
             }
         }
+    }
+
+    public void onMessageReceived(String message, String fromPeer) {
+        // Forward to service for notification handling
+        if (webRTCService != null) {
+            webRTCService.handleMessageNotification(message, fromPeer);
+        }
+    }
+
+    public void setWebRTCService(WebRTCService service) {
+        this.webRTCService = service;
+        Log.d("WebRTC", "🔗 WebRTCService reference set");
     }
 }
