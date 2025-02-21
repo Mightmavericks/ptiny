@@ -22,15 +22,24 @@
             android:id="@+id/usernameLetter"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:background="@color/primary"
+            android:background="@drawable/circle_background"
             android:gravity="center"
-            android:textColor="@color/white"
+            android:textColor="@android:color/white"
             android:textSize="18sp"
             android:textStyle="bold"
             android:fontFamily="monospace"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:layout_constraintBottom_toBottomOf="parent" />
+
+        <ImageView
+            android:id="@+id/onlineStatusDot"
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:src="@drawable/ic_dot"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="@id/usernameLetter"
+            app:layout_constraintEnd_toEndOf="@id/usernameLetter" />
 
         <LinearLayout
             android:layout_width="0dp"

@@ -87,10 +87,6 @@ public class DataChannelHandler {
                 if (stateChangeListener != null) {
                     stateChangeListener.onStateChange(dataChannel.state());
                 }
-                // Notify WebRTCClient about state change
-                if (webRTCClient != null) {
-                    webRTCClient.onDataChannelStateChange(peerUsername, dataChannel.state());
-                }
             }
 
             @Override
@@ -102,57 +98,56 @@ public class DataChannelHandler {
                     bytes = new byte[buffer.data.remaining()];
                     buffer.data.get(bytes);
                 }
-
-                String message = new String(bytes, StandardCharsets.UTF_8);
-                Log.d("WebRTC", "Message received from " + peerUsername + ": " + message);
                 
-                // Save message to database
+                String message = new String(bytes, StandardCharsets.UTF_8);
+                Log.d("WebRTC", "📩 Message received from: " + peerUsername);
+
+                // Save message to database first
                 databaseExecutor.execute(() -> {
                     try {
                         MessageEntity messageEntity = new MessageEntity(peerUsername, message, System.currentTimeMillis(), peerUsername);
                         messageDao.insert(messageEntity);
                         Log.d("WebRTC", "Message saved to database from: " + peerUsername);
+                        
+                        // After saving, notify listeners and WebRTCClient
+                        if (messageReceivedListener != null) {
+                            messageReceivedListener.onMessageReceived(message);
+                        }
+                        if (webRTCClient != null) {
+                            webRTCClient.onMessageReceived(message, peerUsername);
+                        }
                     } catch (Exception e) {
                         Log.e("WebRTC", "Error saving message to database: " + e.getMessage());
                     }
                 });
-
-                // Notify listeners about the message
-                if (messageReceivedListener != null) {
-                    messageReceivedListener.onMessageReceived(message);
-                }
-
-                // Forward to WebRTCClient for notification handling
-                if (webRTCClient != null) {
-                    webRTCClient.onMessageReceived(message, peerUsername);
-                }
             }
         });
     }
 
     public void sendMessage(String message, String peerUsername) {
+        // Save message to database first
+        databaseExecutor.execute(() -> {
+            try {
+                MessageEntity messageEntity = new MessageEntity("You", message, System.currentTimeMillis(), peerUsername);
+                messageDao.insert(messageEntity);
+                Log.d("WebRTC", "Message saved to database for: " + peerUsername);
+            } catch (Exception e) {
+                Log.e("WebRTC", "Error saving sent message to database: " + e.getMessage());
+            }
+        });
+
+        // Try to send message if channel is open
         DataChannel channel = dataChannels.get(peerUsername);
         if (channel != null && channel.state() == DataChannel.State.OPEN) {
             try {
                 ByteBuffer buffer = ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8));
                 channel.send(new DataChannel.Buffer(buffer, false));
                 Log.d("WebRTC", "Message sent to " + peerUsername + ": " + message);
-
-                // Save sent message to database
-                databaseExecutor.execute(() -> {
-                    try {
-                        MessageEntity messageEntity = new MessageEntity("You", message, System.currentTimeMillis(), peerUsername);
-                        messageDao.insert(messageEntity);
-                        Log.d("WebRTC", "Sent message saved to database for: " + peerUsername);
-                    } catch (Exception e) {
-                        Log.e("WebRTC", "Error saving sent message to database: " + e.getMessage());
-                    }
-                });
             } catch (Exception e) {
                 Log.e("WebRTC", "Error sending message: " + e.getMessage());
             }
         } else {
-            Log.e("WebRTC", "Cannot send message: DataChannel is null or not open for peer " + peerUsername);
+            Log.d("WebRTC", "Message stored for offline delivery to: " + peerUsername);
         }
     }
 

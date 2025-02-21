@@ -1,8 +1,8 @@
 package com.example.protegotinyever.tt;
 
 public class UserModel {
-    private String phoneNumber;
     private String username;
+    private String phone;
     private boolean isOnline;
 
     // Default constructor (important for Firebase!)
@@ -10,24 +10,24 @@ public class UserModel {
     }
 
     // Constructor
-    public UserModel(String phoneNumber, String username, boolean isOnline) {
-        this.phoneNumber = phoneNumber;
+    public UserModel(String username, String phone, boolean isOnline) {
         this.username = username;
+        this.phone = phone;
         this.isOnline = isOnline;
     }
 
     public UserModel(String username, String phone) {
-        this.phoneNumber = phone;
         this.username = username;
+        this.phone = phone;
     }
 
     // Getters & Setters (needed for Firebase to map data)
     public String getPhone() {
-        return phoneNumber;
+        return phone;
     }
 
-    public void setPhone(String phoneNumber) {
-        this.phoneNumber = phoneNumber;
+    public void setPhone(String phone) {
+        this.phone = phone;
     }
 
     public String getUsername() {

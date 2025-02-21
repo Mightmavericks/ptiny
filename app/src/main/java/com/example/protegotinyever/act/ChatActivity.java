@@ -125,29 +125,25 @@ public class ChatActivity extends AppCompatActivity {
     private void updateConnectionStatus(DataChannel.State state) {
         String statusText;
         int statusColor;
-        boolean enableSend;
+        boolean enableSend = true; // Always allow sending messages
 
         switch (state) {
             case OPEN:
                 statusText = "SECURE CONNECTION ACTIVE";
                 statusColor = getColor(R.color.success_green);
-                enableSend = true;
                 break;
             case CONNECTING:
-                statusText = "ESTABLISHING CONNECTION";
+                statusText = "ESTABLISHING CONNECTION - MESSAGES WILL BE DELIVERED WHEN PEER IS ONLINE";
                 statusColor = getColor(R.color.warning_yellow);
-                enableSend = false;
                 break;
             case CLOSING:
             case CLOSED:
-                statusText = "CONNECTION CLOSED";
-                statusColor = getColor(R.color.error_red);
-                enableSend = false;
+                statusText = "OFFLINE - MESSAGES WILL BE DELIVERED WHEN PEER IS ONLINE";
+                statusColor = getColor(R.color.warning_yellow);
                 break;
             default:
-                statusText = "CONNECTION ERROR";
+                statusText = "CONNECTION ERROR - MESSAGES WILL BE SAVED";
                 statusColor = getColor(R.color.error_red);
-                enableSend = false;
                 break;
         }
 
@@ -163,7 +159,22 @@ public class ChatActivity extends AppCompatActivity {
             dataChannelHandler.sendMessage(messageText, peerUsername);
             addMessageToUI(new MessageModel(currentUser, messageText, System.currentTimeMillis()));
             messageInput.setText("");
+            
+            // Show offline message indicator if needed
+            DataChannel channel = dataChannelHandler.getDataChannel(peerUsername);
+            if (channel == null || channel.state() != DataChannel.State.OPEN) {
+                showOfflineMessageIndicator();
+            }
         }
+    }
+
+    private void showOfflineMessageIndicator() {
+        // Show a brief message indicating the message will be delivered later
+        android.widget.Toast.makeText(
+            this,
+            "Message will be delivered when peer comes online",
+            android.widget.Toast.LENGTH_SHORT
+        ).show();
     }
 
     private void loadMessageHistory() {

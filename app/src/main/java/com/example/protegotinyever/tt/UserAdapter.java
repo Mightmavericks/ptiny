@@ -4,6 +4,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
@@ -36,25 +37,30 @@ public class UserAdapter extends RecyclerView.Adapter<UserAdapter.UserViewHolder
         
         // Set username and its first letter
         holder.usernameText.setText(user.getUsername().toUpperCase());
-        if (user.getUsername() != null && !user.getUsername().isEmpty()) {
+        if (!user.getUsername().isEmpty()) {
             holder.usernameLetter.setText(String.valueOf(user.getUsername().charAt(0)).toUpperCase());
         }
         
         // Set phone number
         holder.phoneText.setText(user.getPhone());
+        
+        // Set online status dot
+        holder.onlineStatusDot.setVisibility(user.isOnline() ? View.VISIBLE : View.GONE);
+        holder.onlineStatusDot.setColorFilter(holder.itemView.getContext().getColor(R.color.success_green));
 
+        // Check WebRTC connection status
         WebRTCClient webRTCClient = WebRTCClient.getInstance(holder.itemView.getContext(), null);
         DataChannel dataChannel = webRTCClient.getDataChannels().get(user.getUsername());
         
-        // Check both connection and data channel state
+        // Set WebRTC connection status
         if (dataChannel != null && dataChannel.state() == DataChannel.State.OPEN) {
             holder.statusText.setText("CONNECTED");
             holder.statusText.setTextColor(holder.itemView.getContext().getColor(R.color.success_green));
         } else if (webRTCClient.isAttemptingConnection(user.getUsername())) {
-            holder.statusText.setText("CONNECTING");
+            holder.statusText.setText("REQUESTING");
             holder.statusText.setTextColor(holder.itemView.getContext().getColor(R.color.warning_yellow));
         } else {
-            holder.statusText.setText("CLOSED");
+            holder.statusText.setText("DISCONNECTED");
             holder.statusText.setTextColor(holder.itemView.getContext().getColor(R.color.error_red));
         }
 
@@ -69,6 +75,7 @@ public class UserAdapter extends RecyclerView.Adapter<UserAdapter.UserViewHolder
     public static class UserViewHolder extends RecyclerView.ViewHolder {
         TextView usernameText, phoneText, usernameLetter;
         EditText statusText;
+        ImageView onlineStatusDot;
 
         public UserViewHolder(View itemView) {
             super(itemView);
@@ -76,6 +83,7 @@ public class UserAdapter extends RecyclerView.Adapter<UserAdapter.UserViewHolder
             phoneText = itemView.findViewById(R.id.phoneText);
             usernameLetter = itemView.findViewById(R.id.usernameLetter);
             statusText = itemView.findViewById(R.id.statusIndicator);
+            onlineStatusDot = itemView.findViewById(R.id.onlineStatusDot);
         }
     }
 

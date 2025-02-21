@@ -13,12 +13,12 @@
             </Target>
             <Target type="DEFAULT_BOOT">
               <handle>
-                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\AlphaMJ\.android\avd\lewin.avd" />
+                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\AlphaMJ\.android\avd\joyal.avd" />
               </handle>
             </Target>
             <Target type="DEFAULT_BOOT">
               <handle>
-                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\AlphaMJ\.android\avd\joyal.avd" />
+                <DeviceId pluginId="LocalEmulator" identifier="path=C:\Users\AlphaMJ\.android\avd\lewin.avd" />
               </handle>
             </Target>
           </targets>

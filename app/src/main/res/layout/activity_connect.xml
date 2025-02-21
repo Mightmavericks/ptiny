@@ -14,29 +14,7 @@
         android:elevation="4dp"
         app:layout_constraintTop_toTopOf="parent">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="SECURE CONTACTS"
-            android:textColor="@color/text_primary"
-            android:textSize="18sp"
-            android:fontFamily="monospace"
-            android:textStyle="bold" />
-
     </androidx.appcompat.widget.Toolbar>
-
-    <TextView
-        android:id="@+id/scanningText"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="SCANNING FOR SECURE PEERS"
-        android:textColor="@color/accent"
-        android:textSize="14sp"
-        android:fontFamily="monospace"
-        app:layout_constraintTop_toBottomOf="@id/toolbar"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/contactsRecyclerView"
@@ -46,7 +24,7 @@
         android:clipToPadding="false"
         android:padding="8dp"
         android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@id/scanningText"
+        app:layout_constraintTop_toBottomOf="@id/toolbar"
         app:layout_constraintBottom_toBottomOf="parent" />
 
     <TextView

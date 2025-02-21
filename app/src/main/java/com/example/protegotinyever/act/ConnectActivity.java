@@ -9,6 +9,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -44,9 +46,14 @@ public class ConnectActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_connect);
 
+        // Initialize views
         contactsRecyclerView = findViewById(R.id.contactsRecyclerView);
         noUsersText = findViewById(R.id.noUsersText);
         contactsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+
+        // Setup toolbar
+        androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
 
         String currentUser = getIntent().getStringExtra("username");
         String currentUserPhone = getIntent().getStringExtra("phoneNumber");
@@ -54,20 +61,8 @@ public class ConnectActivity extends AppCompatActivity {
         // Initialize Firebase first
         firebaseClient = new FirebaseClient(currentUser, currentUserPhone);
         
-        // Set initial scanning state before WebRTC setup
-        TextView scanningText = findViewById(R.id.scanningText);
-        
         // Get WebRTC instance but don't clean up existing connections
         webRTCClient = WebRTCClient.getInstance(this, firebaseClient);
-        
-        // Update UI based on existing connection state
-        if (webRTCClient.isConnected()) {
-            scanningText.setText("SECURE CONNECTION ACTIVE");
-            scanningText.setTextColor(getColor(R.color.success_green));
-        } else {
-            scanningText.setText("SCANNING FOR SECURE PEERS");
-            scanningText.setTextColor(getColor(R.color.accent));
-        }
 
         // Setup back press handling
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -89,10 +84,6 @@ public class ConnectActivity extends AppCompatActivity {
             @Override
             public void onConnected() {
                 runOnUiThread(() -> {
-                    TextView scanningText = findViewById(R.id.scanningText);
-                    scanningText.setText("SECURE CONNECTION ACTIVE");
-                    scanningText.setTextColor(getColor(R.color.success_green));
-                    
                     // Update adapter to refresh status indicators
                     if (contactsAdapter != null) {
                         contactsAdapter.notifyDataSetChanged();
@@ -103,16 +94,9 @@ public class ConnectActivity extends AppCompatActivity {
             @Override
             public void onConnectionFailed() {
                 runOnUiThread(() -> {
-                    TextView scanningText = findViewById(R.id.scanningText);
-                    // Only show CONNECTION FAILED if we were actually trying to connect
-                    if (webRTCClient.getPeerUsername() != null && webRTCClient.isAttemptingConnection()) {
-                        scanningText.setText("CONNECTION FAILED");
-                        scanningText.setTextColor(getColor(R.color.error_red));
-                        // Clean up the failed connection attempt
-                        webRTCClient.disconnect();  // Use disconnect instead of cleanup
-                    } else {
-                        scanningText.setText("SCANNING FOR SECURE PEERS");
-                        scanningText.setTextColor(getColor(R.color.accent));
+                    // Update adapter to refresh status indicators
+                    if (contactsAdapter != null) {
+                        contactsAdapter.notifyDataSetChanged();
                     }
                 });
             }
@@ -240,20 +224,17 @@ public class ConnectActivity extends AppCompatActivity {
     }
 
     private void onContactClicked(UserModel user) {
-        TextView scanningText = findViewById(R.id.scanningText);
+        // Always navigate to chat first
+        navigateToChat(user.getUsername());
         
-        // If already connected to this user, navigate to chat
-        if (webRTCClient.isConnected(user.getUsername())) {
-            navigateToChat(user.getUsername());
-            return;
-        }
-        
-        // Start new connection regardless of other connections
-        if (!webRTCClient.isAttemptingConnection(user.getUsername())) {
-            // Show connecting state in UI
-            scanningText.setText("ESTABLISHING SECURE CONNECTION...");
-            scanningText.setTextColor(getColor(R.color.warning_yellow));
+        // If not connected, try to establish connection
+        if (!webRTCClient.isConnected(user.getUsername()) && 
+            !webRTCClient.isAttemptingConnection(user.getUsername())) {
             webRTCClient.startConnection(user.getUsername());
+            // Update adapter to show requesting state
+            if (contactsAdapter != null) {
+                contactsAdapter.notifyDataSetChanged();
+            }
         }
     }
 
@@ -272,11 +253,7 @@ public class ConnectActivity extends AppCompatActivity {
         }
         
         // Update UI based on connection state
-        TextView scanningText = findViewById(R.id.scanningText);
         if (webRTCClient != null && !webRTCClient.getPeerConnections().isEmpty()) {
-            scanningText.setText("SECURE CONNECTION ACTIVE");
-            scanningText.setTextColor(getColor(R.color.success_green));
-            
             // Also update the contact list to show connected state
             if (contactsAdapter != null) {
                 contactsAdapter.notifyDataSetChanged();
@@ -297,5 +274,40 @@ public class ConnectActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         // Don't disconnect or cleanup here - let the service handle it
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_connect, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_logout) {
+            // Set user offline in Firebase
+            if (firebaseClient != null) {
+                firebaseClient.saveUser(getIntent().getStringExtra("username"), 
+                    getIntent().getStringExtra("phoneNumber"), 
+                    false, 
+                    () -> {
+                        // Stop WebRTC service
+                        stopService(new Intent(this, WebRTCService.class));
+                        
+                        // Disconnect WebRTC
+                        if (webRTCClient != null) {
+                            webRTCClient.disconnect();
+                        }
+                        
+                        // Navigate to login
+                        Intent intent = new Intent(this, LoginActivity.class);
+                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                        startActivity(intent);
+                        finish();
+                    });
+            }
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
     }
 }
