@@ -11,11 +11,14 @@ import java.util.List;
 @Dao
 public interface MessageDao {
     @Insert
-    void insertMessage(MessageEntity message);
+    void insert(MessageEntity message);
 
     @Query("SELECT * FROM messages WHERE peerUsername = :peerUsername ORDER BY timestamp ASC")
     List<MessageEntity> getMessagesForPeer(String peerUsername);
 
     @Query("DELETE FROM messages WHERE peerUsername = :peerUsername")
     void deleteMessagesForPeer(String peerUsername);
+
+    @Query("DELETE FROM messages")
+    void deleteAllMessages();
 }

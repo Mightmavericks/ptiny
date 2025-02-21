@@ -5,6 +5,7 @@ import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.ContactsContract;
 import android.util.Log;
@@ -36,6 +37,7 @@ public class ConnectActivity extends AppCompatActivity {
     private List<UserModel> availableContacts = new ArrayList<>();
     private UserAdapter contactsAdapter;
     private static final int CONTACTS_PERMISSION_CODE = 100;
+    private static final int NOTIFICATION_PERMISSION_CODE = 101;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,12 +50,6 @@ public class ConnectActivity extends AppCompatActivity {
 
         String currentUser = getIntent().getStringExtra("username");
         String currentUserPhone = getIntent().getStringExtra("phoneNumber");
-
-        // Start WebRTC service to maintain connection
-        Intent serviceIntent = new Intent(this, WebRTCService.class);
-        serviceIntent.putExtra("username", currentUser);
-        serviceIntent.putExtra("phoneNumber", currentUserPhone);
-        startForegroundService(serviceIntent);
 
         // Initialize Firebase first
         firebaseClient = new FirebaseClient(currentUser, currentUserPhone);
@@ -82,8 +78,10 @@ public class ConnectActivity extends AppCompatActivity {
             }
         });
 
-        checkContactsPermission();
         setupWebRTC();
+        
+        // Check permissions after Firebase is initialized
+        checkPermissions();
     }
 
     private void setupWebRTC() {
@@ -121,23 +119,75 @@ public class ConnectActivity extends AppCompatActivity {
         });
     }
 
-    private void checkContactsPermission() {
+    private void checkPermissions() {
+        Log.d("ConnectActivity", "Checking permissions");
+        // Check contacts permission
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            Log.d("ConnectActivity", "Requesting contacts permission");
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_CONTACTS}, CONTACTS_PERMISSION_CODE);
         } else {
+            Log.d("ConnectActivity", "Contacts permission already granted");
             fetchContactsAndCheckUsers();
+        }
+
+        // Check notification permission for Android 13 and above
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                Log.d("ConnectActivity", "Requesting notification permission");
+                ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_PERMISSION_CODE);
+            } else {
+                Log.d("ConnectActivity", "Notification permission already granted");
+                startWebRTCService();
+            }
+        } else {
+            Log.d("ConnectActivity", "No notification permission needed for this Android version");
+            startWebRTCService();
         }
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == CONTACTS_PERMISSION_CODE && grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            fetchContactsAndCheckUsers();
+        if (requestCode == CONTACTS_PERMISSION_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Log.d("ConnectActivity", "Contacts permission granted");
+                fetchContactsAndCheckUsers();
+            } else {
+                Log.d("ConnectActivity", "Contacts permission denied");
+                // Show empty state or message about needing contacts permission
+                noUsersText.setVisibility(View.VISIBLE);
+                noUsersText.setText("Contacts permission required to find users");
+                contactsRecyclerView.setVisibility(View.GONE);
+            }
+        } else if (requestCode == NOTIFICATION_PERMISSION_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Log.d("ConnectActivity", "Notification permission granted");
+                startWebRTCService();
+            }
+        }
+    }
+
+    private void startWebRTCService() {
+        try {
+            // Start WebRTC service to maintain connection
+            Intent serviceIntent = new Intent(this, WebRTCService.class);
+            serviceIntent.putExtra("username", getIntent().getStringExtra("username"));
+            serviceIntent.putExtra("phoneNumber", getIntent().getStringExtra("phoneNumber"));
+            Log.d("ConnectActivity", "Starting WebRTC service with username: " + getIntent().getStringExtra("username"));
+            startForegroundService(serviceIntent);
+            Log.d("ConnectActivity", "WebRTC service started successfully");
+        } catch (Exception e) {
+            Log.e("ConnectActivity", "Failed to start WebRTC service", e);
+            Toast.makeText(this, "Failed to start chat service", Toast.LENGTH_SHORT).show();
         }
     }
 
     private void fetchContactsAndCheckUsers() {
+        if (firebaseClient == null) {
+            Log.e("ConnectActivity", "FirebaseClient is null, cannot fetch users");
+            return;
+        }
+        
         List<String> phoneContacts = getDeviceContacts();
         firebaseClient.getRegisteredUsers(users -> {
             availableContacts.clear();
@@ -193,19 +243,13 @@ public class ConnectActivity extends AppCompatActivity {
         TextView scanningText = findViewById(R.id.scanningText);
         
         // If already connected to this user, navigate to chat
-        if (webRTCClient.isConnected() && user.getUsername().equals(webRTCClient.getPeerUsername())) {
+        if (webRTCClient.isConnected(user.getUsername())) {
             navigateToChat(user.getUsername());
             return;
         }
         
-        // If connected to different user, show toast
-        if (webRTCClient.isConnected()) {
-            Toast.makeText(this, "Already connected to " + webRTCClient.getPeerUsername(), Toast.LENGTH_SHORT).show();
-            return;
-        }
-
-        // Only try to establish connection if not already connected
-        if (!webRTCClient.isConnected() && !webRTCClient.isAttemptingConnection()) {
+        // Start new connection regardless of other connections
+        if (!webRTCClient.isAttemptingConnection(user.getUsername())) {
             // Show connecting state in UI
             scanningText.setText("ESTABLISHING SECURE CONNECTION...");
             scanningText.setTextColor(getColor(R.color.warning_yellow));
@@ -229,7 +273,7 @@ public class ConnectActivity extends AppCompatActivity {
         
         // Update UI based on connection state
         TextView scanningText = findViewById(R.id.scanningText);
-        if (webRTCClient != null && webRTCClient.isConnected()) {
+        if (webRTCClient != null && !webRTCClient.getPeerConnections().isEmpty()) {
             scanningText.setText("SECURE CONNECTION ACTIVE");
             scanningText.setTextColor(getColor(R.color.success_green));
             
@@ -237,9 +281,6 @@ public class ConnectActivity extends AppCompatActivity {
             if (contactsAdapter != null) {
                 contactsAdapter.notifyDataSetChanged();
             }
-        } else {
-            // Only refresh contacts if not connected
-            fetchContactsAndCheckUsers();
         }
     }
 

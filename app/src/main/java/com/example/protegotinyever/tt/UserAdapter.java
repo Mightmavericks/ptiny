@@ -3,10 +3,15 @@ package com.example.protegotinyever.tt;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import com.example.protegotinyever.R;
+import com.example.protegotinyever.webrtc.WebRTCClient;
+
+import org.webrtc.DataChannel;
+
 import java.util.List;
 
 public class UserAdapter extends RecyclerView.Adapter<UserAdapter.UserViewHolder> {
@@ -30,7 +35,7 @@ public class UserAdapter extends RecyclerView.Adapter<UserAdapter.UserViewHolder
         UserModel user = userList.get(position);
         
         // Set username and its first letter
-        holder.usernameText.setText(user.getUsername());
+        holder.usernameText.setText(user.getUsername().toUpperCase());
         if (user.getUsername() != null && !user.getUsername().isEmpty()) {
             holder.usernameLetter.setText(String.valueOf(user.getUsername().charAt(0)).toUpperCase());
         }
@@ -38,13 +43,19 @@ public class UserAdapter extends RecyclerView.Adapter<UserAdapter.UserViewHolder
         // Set phone number
         holder.phoneText.setText(user.getPhone());
 
-        // Set connection status
-        if (user.isOnline()) {
-            holder.statusIndicator.setText("ACTIVE");
-            holder.statusIndicator.setTextColor(holder.itemView.getContext().getResources().getColor(R.color.success_green, null));
+        WebRTCClient webRTCClient = WebRTCClient.getInstance(holder.itemView.getContext(), null);
+        DataChannel dataChannel = webRTCClient.getDataChannels().get(user.getUsername());
+        
+        // Check both connection and data channel state
+        if (dataChannel != null && dataChannel.state() == DataChannel.State.OPEN) {
+            holder.statusText.setText("CONNECTED");
+            holder.statusText.setTextColor(holder.itemView.getContext().getColor(R.color.success_green));
+        } else if (webRTCClient.isAttemptingConnection(user.getUsername())) {
+            holder.statusText.setText("CONNECTING");
+            holder.statusText.setTextColor(holder.itemView.getContext().getColor(R.color.warning_yellow));
         } else {
-            holder.statusIndicator.setText("CLOSED");
-            holder.statusIndicator.setTextColor(holder.itemView.getContext().getResources().getColor(R.color.error_red, null));
+            holder.statusText.setText("CLOSED");
+            holder.statusText.setTextColor(holder.itemView.getContext().getColor(R.color.error_red));
         }
 
         holder.itemView.setOnClickListener(v -> listener.onUserClick(user));
@@ -56,14 +67,15 @@ public class UserAdapter extends RecyclerView.Adapter<UserAdapter.UserViewHolder
     }
 
     public static class UserViewHolder extends RecyclerView.ViewHolder {
-        TextView usernameText, phoneText, usernameLetter, statusIndicator;
+        TextView usernameText, phoneText, usernameLetter;
+        EditText statusText;
 
         public UserViewHolder(View itemView) {
             super(itemView);
             usernameText = itemView.findViewById(R.id.usernameText);
             phoneText = itemView.findViewById(R.id.phoneText);
             usernameLetter = itemView.findViewById(R.id.usernameLetter);
-            statusIndicator = itemView.findViewById(R.id.statusIndicator);
+            statusText = itemView.findViewById(R.id.statusIndicator);
         }
     }
 

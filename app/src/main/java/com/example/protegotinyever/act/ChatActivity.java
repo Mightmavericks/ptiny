@@ -97,16 +97,19 @@ public class ChatActivity extends AppCompatActivity {
     private void setupDataChannel() {
         dataChannelHandler = DataChannelHandler.getInstance(getApplicationContext());
         dataChannelHandler.setCurrentPeer(peerUsername);
+        
         dataChannelHandler.setOnMessageReceivedListener(message -> {
             addMessageToUI(new MessageModel(peerUsername, message, System.currentTimeMillis()));
         });
+        
         dataChannelHandler.setStateChangeListener(state -> {
             runOnUiThread(() -> updateConnectionStatus(state));
         });
 
         // Initial state check
-        if (dataChannelHandler.getDataChannel() != null) {
-            updateConnectionStatus(dataChannelHandler.getDataChannel().state());
+        DataChannel channel = dataChannelHandler.getDataChannel(peerUsername);
+        if (channel != null) {
+            updateConnectionStatus(channel.state());
         }
     }
 
