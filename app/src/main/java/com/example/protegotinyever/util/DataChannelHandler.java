@@ -109,11 +109,13 @@ public class DataChannelHandler {
                         messageDao.insert(messageEntity);
                         Log.d("WebRTC", "Message saved to database from: " + peerUsername);
                         
-                        // After saving, notify listeners and WebRTCClient
-                        if (messageReceivedListener != null) {
+                        // Always notify UI if this is the current peer being chatted with
+                        if (messageReceivedListener != null && peerUsername.equals(currentPeerUsername)) {
                             messageReceivedListener.onMessageReceived(message);
                         }
-                        if (webRTCClient != null) {
+                        
+                        // Only notify service for notification if this is NOT the current peer
+                        if (webRTCClient != null && !peerUsername.equals(currentPeerUsername)) {
                             webRTCClient.onMessageReceived(message, peerUsername);
                         }
                     } catch (Exception e) {

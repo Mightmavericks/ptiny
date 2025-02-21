@@ -157,7 +157,6 @@ public class ChatActivity extends AppCompatActivity {
         String messageText = messageInput.getText().toString().trim();
         if (!messageText.isEmpty()) {
             dataChannelHandler.sendMessage(messageText, peerUsername);
-            addMessageToUI(new MessageModel(currentUser, messageText, System.currentTimeMillis()));
             messageInput.setText("");
             
             // Show offline message indicator if needed
@@ -165,6 +164,9 @@ public class ChatActivity extends AppCompatActivity {
             if (channel == null || channel.state() != DataChannel.State.OPEN) {
                 showOfflineMessageIndicator();
             }
+            
+            // Refresh message history to show the new message
+            loadMessageHistory();
         }
     }
 
