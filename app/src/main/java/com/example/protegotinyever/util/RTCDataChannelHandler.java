@@ -9,6 +9,7 @@ public class RTCDataChannelHandler {
     private static final String TAG = "RTCDataChannelHandler";
     private DataChannel dataChannel;
     private OnMessageReceivedListener listener;
+    private int rea = 1;
 
     public interface OnMessageReceivedListener {
         void onMessageReceived(String message);

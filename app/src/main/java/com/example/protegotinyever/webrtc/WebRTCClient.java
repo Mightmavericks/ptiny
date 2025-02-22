@@ -4,6 +4,7 @@ import android.content.Context;
 import android.util.Log;
 
 import com.example.protegotinyever.adapt.MessageEntity;
+import com.example.protegotinyever.service.ConnectionManager;
 import com.example.protegotinyever.service.WebRTCService;
 import com.example.protegotinyever.tt.DataModelType;
 import com.example.protegotinyever.util.CustomSdpObserver;
@@ -29,6 +30,7 @@ public class WebRTCClient {
     private Map<String, Boolean> hasSentOffers;
     private boolean isBackgroundMode = false; // Track if app is in background
     private WebRTCService webRTCService;
+    private int rea = 1;
 
     public static WebRTCClient getInstance(Context context, FirebaseClient firebaseClient) {
         if (instance == null) {
@@ -73,8 +75,11 @@ public class WebRTCClient {
             switch (type) {
                 case "OFFER":
                     Log.d("WebRTC", "📩 Received Offer from " + currentPeerUsername);
-                    // Show connection request notification instead of auto-accepting
-                    if (!isConnected(currentPeerUsername)) {
+                    // Auto-accept if previously connected, otherwise show notification
+                    if (ConnectionManager.getInstance(context).isUserConnected(currentPeerUsername)) {
+                        Log.d("WebRTC", "Auto-accepting connection from previously connected user: " + currentPeerUsername);
+                        acceptConnection(currentPeerUsername, data);
+                    } else if (!isConnected(currentPeerUsername)) {
                         if (webRTCService != null) {
                             webRTCService.showConnectionRequestNotification(currentPeerUsername, data);
                         } else {

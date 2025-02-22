@@ -4,6 +4,7 @@ public class UserModel {
     private String username;
     private String phone;
     private boolean isOnline;
+    private int rea = 1;
 
     // Default constructor (important for Firebase!)
     public UserModel() {

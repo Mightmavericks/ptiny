@@ -11,6 +11,7 @@ import com.example.protegotinyever.adapt.MessageEntity;
 public abstract class ChatDatabase extends RoomDatabase {
     private static final String DATABASE_NAME = "chat_db";
     private static ChatDatabase instance;
+    private int rea = 1;
 
     public abstract MessageDao messageDao();
 

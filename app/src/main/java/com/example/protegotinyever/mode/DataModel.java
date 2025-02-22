@@ -5,6 +5,7 @@ public class DataModel {
     private String sender;
     private String target;
     private String data;
+    private int rea = 1;
 
     public DataModel() {}  // Required for Firebase
 

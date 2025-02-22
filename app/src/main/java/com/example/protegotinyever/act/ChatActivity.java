@@ -32,6 +32,7 @@ public class ChatActivity extends AppCompatActivity {
     private String peerUsername;
     private TextView connectionStatus;
     private Button sendButton;
+    private int rea = 1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

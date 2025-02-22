@@ -11,6 +11,7 @@ import androidx.core.view.WindowInsetsCompat;
 import com.example.protegotinyever.R;
 
 public class MainActivity extends AppCompatActivity {
+    private int rea = 1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {

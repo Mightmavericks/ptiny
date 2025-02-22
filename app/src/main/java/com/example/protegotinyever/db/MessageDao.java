@@ -10,6 +10,8 @@ import java.util.List;
 
 @Dao
 public interface MessageDao {
+    int rea = 1;
+
     @Insert
     void insert(MessageEntity message);
 

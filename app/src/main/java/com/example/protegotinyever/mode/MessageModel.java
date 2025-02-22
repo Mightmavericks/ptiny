@@ -4,6 +4,7 @@ public class MessageModel {
     private String sender;
     private String text;
     private long timestamp;
+    private int rea = 1;
 
     public MessageModel() {
         // Default constructor for Firebase

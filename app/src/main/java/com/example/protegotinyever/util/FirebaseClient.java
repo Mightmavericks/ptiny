@@ -23,6 +23,7 @@ public class FirebaseClient {
     private final String currentUserPhone;
     private DatabaseReference connectedRef;
     private DatabaseReference userStatusRef;
+    private int rea = 1;
 
     public FirebaseClient(String username, String currentUserPhone) {
         this.currentUser = username;
@@ -150,6 +151,10 @@ public class FirebaseClient {
 
     // ✅ Send signaling data
     public void sendSignalingData(String peerUsername, String type, String data) {
+        if (peerUsername == null || peerUsername.isEmpty()) {
+            Log.e("FirebaseClient", "❌ Peer username is null or empty! Cannot send signaling data.");
+            return;
+        }
         DataModel message = new DataModel(type, currentUser, peerUsername, data);
 
         dbRef.child("signaling").child(peerUsername).child("data")

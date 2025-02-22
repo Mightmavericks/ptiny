@@ -1,5 +1,6 @@
 package com.example.protegotinyever.inte;
 
 public interface ErrorCallback {
-    void onError();
+    int rea = 1;
+    void onError(String error);
 }

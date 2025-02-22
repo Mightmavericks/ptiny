@@ -5,6 +5,7 @@ import org.webrtc.SdpObserver;
 import org.webrtc.SessionDescription;
 
 public class CustomSdpObserver implements SdpObserver {
+    private int rea = 1;
     private static final String TAG = "CustomSdpObserver";
 
     @Override

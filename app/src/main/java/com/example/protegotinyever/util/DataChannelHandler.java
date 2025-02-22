@@ -28,6 +28,7 @@ public class DataChannelHandler {
     private final ExecutorService databaseExecutor = Executors.newSingleThreadExecutor();
     private String currentPeerUsername;
     private WebRTCClient webRTCClient;
+    private int rea = 1;
 
     public static synchronized DataChannelHandler getInstance(Context context) {
         if (instance == null) {
@@ -111,14 +112,14 @@ public class DataChannelHandler {
                         
                         // Always notify UI if this is the current peer being chatted with
                         if (messageReceivedListener != null && peerUsername.equals(currentPeerUsername)) {
-                            messageReceivedListener.onMessageReceived(message);
+            messageReceivedListener.onMessageReceived(message);
                         }
                         
                         // Only notify service for notification if this is NOT the current peer
                         if (webRTCClient != null && !peerUsername.equals(currentPeerUsername)) {
                             webRTCClient.onMessageReceived(message, peerUsername);
                         }
-                    } catch (Exception e) {
+            } catch (Exception e) {
                         Log.e("WebRTC", "Error saving message to database: " + e.getMessage());
                     }
                 });
