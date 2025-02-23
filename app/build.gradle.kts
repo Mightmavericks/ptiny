@@ -52,6 +52,7 @@ dependencies {
     implementation (libs.webrtc)
     implementation (libs.permissionx)
     implementation(libs.constraintlayout)
+    implementation(libs.biometric)
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
@@ -73,6 +74,7 @@ dependencies {
 
     //Country code picker
     implementation (libs.ccp)
+    implementation (libs.bcprov.jdk18on)
 
     // Retrofit
     implementation (libs.retrofit)

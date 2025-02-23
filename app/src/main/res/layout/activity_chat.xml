@@ -48,6 +48,25 @@
         app:layout_constraintBottom_toTopOf="@id/messageInputLayout"
         app:layout_constraintTop_toBottomOf="@id/toolbar" />
 
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/messageInputLayout"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
+    <TextView
+        android:id="@+id/progressText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        android:textColor="@color/text_primary"
+        app:layout_constraintBottom_toTopOf="@id/progressBar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
     <LinearLayout
         android:id="@+id/messageInputLayout"
         android:layout_width="match_parent"
@@ -80,6 +99,18 @@
         </com.google.android.material.textfield.TextInputLayout>
 
         <com.google.android.material.button.MaterialButton
+            android:id="@+id/sendFileButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:backgroundTint="@color/accent"
+            android:text="File"
+            android:textColor="@color/black"
+            android:fontFamily="monospace"
+            app:cornerRadius="8dp"
+            app:icon="@android:drawable/ic_menu_upload"
+            app:iconTint="@color/black" />
+
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/sendButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -91,5 +122,4 @@
             app:icon="@android:drawable/ic_menu_send"
             app:iconTint="@color/black" />
     </LinearLayout>
-
 </androidx.constraintlayout.widget.ConstraintLayout>

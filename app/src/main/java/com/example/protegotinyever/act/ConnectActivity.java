@@ -18,7 +18,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.viewpager2.widget.ViewPager2;
 import com.example.protegotinyever.R;
-import com.example.protegotinyever.adapt.ConnectPagerAdapter;
+import com.example.protegotinyever.act.ConnectPagerAdapter;
 import com.example.protegotinyever.service.WebRTCService;
 import com.example.protegotinyever.tt.UserAdapter;
 import com.example.protegotinyever.tt.UserModel;
@@ -127,6 +127,11 @@ public class ConnectActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     fetchContactsAndCheckUsers();
                 });
+            }
+
+            @Override
+            public void onMessageReceived(String message, String peerUsername) {
+
             }
         });
     }

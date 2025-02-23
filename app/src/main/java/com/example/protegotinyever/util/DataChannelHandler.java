@@ -66,8 +66,6 @@ public class DataChannelHandler {
             Log.d("WebRTC", "Setting DataChannel for peer: " + currentPeerUsername);
             dataChannels.put(currentPeerUsername, dataChannel);
             registerDataChannelObserver(currentPeerUsername, dataChannel);
-            
-            // Notify about initial state
             if (stateChangeListener != null) {
                 stateChangeListener.onStateChange(dataChannel.state());
             }
@@ -92,43 +90,16 @@ public class DataChannelHandler {
 
             @Override
             public void onMessage(DataChannel.Buffer buffer) {
-                byte[] bytes;
-                if (buffer.data.hasArray()) {
-                    bytes = buffer.data.array();
-                } else {
-                    bytes = new byte[buffer.data.remaining()];
-                    buffer.data.get(bytes);
-                }
-                
+                byte[] bytes = new byte[buffer.data.remaining()];
+                buffer.data.get(bytes);
                 String message = new String(bytes, StandardCharsets.UTF_8);
-                Log.d("WebRTC", "📩 Message received from: " + peerUsername);
-
-                // Save message to database first
-                databaseExecutor.execute(() -> {
-                    try {
-                        MessageEntity messageEntity = new MessageEntity(peerUsername, message, System.currentTimeMillis(), peerUsername);
-                        messageDao.insert(messageEntity);
-                        Log.d("WebRTC", "Message saved to database from: " + peerUsername);
-                        
-                        // Always notify UI if this is the current peer being chatted with
-                        if (messageReceivedListener != null && peerUsername.equals(currentPeerUsername)) {
-            messageReceivedListener.onMessageReceived(message);
-                        }
-                        
-                        // Only notify service for notification if this is NOT the current peer
-                        if (webRTCClient != null && !peerUsername.equals(currentPeerUsername)) {
-                            webRTCClient.onMessageReceived(message, peerUsername);
-                        }
-            } catch (Exception e) {
-                        Log.e("WebRTC", "Error saving message to database: " + e.getMessage());
-                    }
-                });
+                Log.d("WebRTC", "📩 Plaintext message received from: " + peerUsername + ": " + message);
+                onMessageReceived(peerUsername, message);
             }
         });
     }
 
     public void sendMessage(String message, String peerUsername) {
-        // Save message to database first
         databaseExecutor.execute(() -> {
             try {
                 MessageEntity messageEntity = new MessageEntity("You", message, System.currentTimeMillis(), peerUsername);
@@ -139,19 +110,30 @@ public class DataChannelHandler {
             }
         });
 
-        // Try to send message if channel is open
         DataChannel channel = dataChannels.get(peerUsername);
         if (channel != null && channel.state() == DataChannel.State.OPEN) {
             try {
                 ByteBuffer buffer = ByteBuffer.wrap(message.getBytes(StandardCharsets.UTF_8));
                 channel.send(new DataChannel.Buffer(buffer, false));
-                Log.d("WebRTC", "Message sent to " + peerUsername + ": " + message);
+                Log.d("WebRTC", "Plaintext message sent to " + peerUsername + ": " + message);
             } catch (Exception e) {
                 Log.e("WebRTC", "Error sending message: " + e.getMessage());
             }
         } else {
             Log.d("WebRTC", "Message stored for offline delivery to: " + peerUsername);
         }
+    }
+
+    public void storeMessage(String message, String peerUsername, String sender) {
+        databaseExecutor.execute(() -> {
+            try {
+                MessageEntity messageEntity = new MessageEntity(sender, message, System.currentTimeMillis(), peerUsername);
+                messageDao.insert(messageEntity);
+                Log.d("WebRTC", "Stored message for " + peerUsername + " from " + sender);
+            } catch (Exception e) {
+                Log.e("WebRTC", "Error storing message: " + e.getMessage());
+            }
+        });
     }
 
     public List<MessageEntity> getMessageHistory(String peerUsername) {
@@ -175,6 +157,26 @@ public class DataChannelHandler {
 
     public DataChannel getDataChannel(String peerUsername) {
         return dataChannels.get(peerUsername);
+    }
+
+    public void onMessageReceived(String peerUsername, String message) {
+        databaseExecutor.execute(() -> {
+            try {
+                MessageEntity messageEntity = new MessageEntity(peerUsername, message, System.currentTimeMillis(), peerUsername);
+                messageDao.insert(messageEntity);
+                Log.d("WebRTC", "Message saved to database from: " + peerUsername);
+
+                if (messageReceivedListener != null && peerUsername.equals(currentPeerUsername)) {
+                    messageReceivedListener.onMessageReceived(message);
+                }
+
+                if (webRTCClient != null && !peerUsername.equals(currentPeerUsername)) {
+                    webRTCClient.onMessageReceived(message, peerUsername);
+                }
+            } catch (Exception e) {
+                Log.e("WebRTC", "Error saving received message to database: " + e.getMessage());
+            }
+        });
     }
 
     public interface OnMessageReceivedListener {
