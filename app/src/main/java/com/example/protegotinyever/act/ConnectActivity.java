@@ -128,6 +128,11 @@ public class ConnectActivity extends AppCompatActivity {
 
             @Override
             public void onMessageReceived(String message, String peerUsername) {}
+
+            @Override
+            public void onFileSent(String filePath, String fileName) {
+
+            }
         });
     }
 
@@ -305,7 +310,11 @@ public class ConnectActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         if (webRTCClient != null) {
-            webRTCClient.onForeground();
+            try {
+                webRTCClient.onForeground();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
             fetchContactsAndCheckUsers();
             reconnectToPreviousUsersWithRetry(3, 1000); // Retry on resume
         }

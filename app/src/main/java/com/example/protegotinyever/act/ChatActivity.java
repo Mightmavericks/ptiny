@@ -1,6 +1,6 @@
 package com.example.protegotinyever.act;
 
-import android.content.Context;
+import android.app.Dialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -8,6 +8,7 @@ import android.util.Log;
 import android.view.MenuItem;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -15,24 +16,23 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import androidx.activity.OnBackPressedCallback;
 
 import com.example.protegotinyever.R;
 import com.example.protegotinyever.adapt.MessageEntity;
-import com.example.protegotinyever.tt.MessageAdapter;
 import com.example.protegotinyever.mode.MessageModel;
+import com.example.protegotinyever.tt.MessageAdapter;
 import com.example.protegotinyever.util.DataChannelHandler;
 import com.example.protegotinyever.webrtc.WebRTCClient;
 
-import java.io.ByteArrayOutputStream;
+import org.webrtc.DataChannel;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
-import org.webrtc.DataChannel;
 
-public class ChatActivity extends AppCompatActivity {
+public class ChatActivity extends AppCompatActivity implements WebRTCClient.ProgressListener {
     private RecyclerView chatRecyclerView;
     private EditText messageInput;
     private MessageAdapter messageAdapter;
@@ -43,8 +43,10 @@ public class ChatActivity extends AppCompatActivity {
     private String peerUsername;
     private TextView connectionStatus;
     private Button sendButton;
-    private int rea = 1;
     private static final int FILE_PICKER_REQUEST_CODE = 1;
+    private Dialog progressDialog;
+    private ProgressBar progressBar;
+    private TextView progressText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,9 +66,10 @@ public class ChatActivity extends AppCompatActivity {
         Log.d("ChatActivity", "Opened chat with peer: " + peerUsername);
 
         webRTCClient = WebRTCClient.getInstance(this, null);
+        webRTCClient.setProgressListener(this);
         dataChannelHandler = DataChannelHandler.getInstance(getApplicationContext());
 
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+        getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
                 if (dataChannelHandler != null) {
@@ -80,6 +83,7 @@ public class ChatActivity extends AppCompatActivity {
         setupToolbar();
         setupDataChannel();
         setupRecyclerView();
+        setupProgressDialog();
 
         sendButton.setOnClickListener(view -> sendMessage());
         loadMessageHistory();
@@ -98,11 +102,23 @@ public class ChatActivity extends AppCompatActivity {
         }
     }
 
+    private void setupProgressDialog() {
+        progressDialog = new Dialog(this);
+        progressDialog.setContentView(R.layout.dialog_progress);
+        progressDialog.setCancelable(false);
+        progressBar = progressDialog.findViewById(R.id.progressBar);
+        progressText = progressDialog.findViewById(R.id.progressText);
+        progressBar.setMax(100);
+    }
+
     private void setupDataChannel() {
         dataChannelHandler.setCurrentPeer(peerUsername);
         dataChannelHandler.setOnMessageReceivedListener(message -> {
             Log.d("ChatActivity", "Received message: " + message);
-            addMessageToUI(new MessageModel(peerUsername, message, System.currentTimeMillis()));
+            addMessageToUI(new MessageModel(peerUsername.equals(currentUser) ? currentUser : peerUsername, message, System.currentTimeMillis()));
+            if (progressDialog.isShowing() && message.contains("Received file:")) {
+                progressDialog.dismiss();
+            }
         });
         dataChannelHandler.setStateChangeListener(state -> {
             Log.d("ChatActivity", "DataChannel state: " + state);
@@ -127,12 +143,30 @@ public class ChatActivity extends AppCompatActivity {
             @Override
             public void onConnectionFailed() {
                 Log.d("ChatActivity", "WebRTC connection failed");
-                runOnUiThread(() -> updateConnectionStatus(DataChannel.State.CLOSED));
+                runOnUiThread(() -> {
+                    updateConnectionStatus(DataChannel.State.CLOSED);
+                    if (progressDialog.isShowing()) {
+                        progressDialog.dismiss();
+                        Toast.makeText(ChatActivity.this, "Connection lost during file transfer", Toast.LENGTH_LONG).show();
+                    }
+                });
             }
 
             @Override
             public void onMessageReceived(String message, String peerUsername) {
                 Log.d("ChatActivity", "WebRTC message received from " + peerUsername + ": " + message + " (ignored for UI)");
+            }
+
+            @Override
+            public void onFileSent(String filePath, String fileName) {
+                Log.d("ChatActivity", "File sent successfully: " + filePath);
+                runOnUiThread(() -> {
+                    addMessageToUI(new MessageModel(currentUser, "Sent file: " + fileName + " at " + filePath, System.currentTimeMillis()));
+                    if (progressDialog.isShowing()) {
+                        progressDialog.dismiss();
+                    }
+                    Toast.makeText(ChatActivity.this, "File sent: " + fileName, Toast.LENGTH_SHORT).show();
+                });
             }
         });
     }
@@ -238,6 +272,9 @@ public class ChatActivity extends AppCompatActivity {
             dataChannelHandler.setOnMessageReceivedListener(null);
             dataChannelHandler.setStateChangeListener(null);
         }
+        if (progressDialog != null && progressDialog.isShowing()) {
+            progressDialog.dismiss();
+        }
     }
 
     public String getPeerUsername() {
@@ -261,30 +298,24 @@ public class ChatActivity extends AppCompatActivity {
 
     private void sendFile(Uri fileUri) {
         try {
-            InputStream inputStream = getContentResolver().openInputStream(fileUri);
-            if (inputStream == null) {
-                throw new IOException("Unable to open input stream for URI: " + fileUri);
-            }
-
-            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            byte[] buffer = new byte[1024];
-            int bytesRead;
-            while ((bytesRead = inputStream.read(buffer)) != -1) {
-                byteArrayOutputStream.write(buffer, 0, bytesRead);
-            }
-            inputStream.close();
-            byte[] fileBytes = byteArrayOutputStream.toByteArray();
-
             String fileName = getFileNameFromUri(fileUri);
             String fileType = getContentResolver().getType(fileUri);
             if (fileType == null) fileType = "application/octet-stream";
 
-            webRTCClient.sendEncryptedMessage(fileBytes, peerUsername, true, fileName, fileType);
-            addMessageToUI(new MessageModel(currentUser, "Sent file: " + fileName, System.currentTimeMillis()));
-            Toast.makeText(this, "File sent: " + fileName, Toast.LENGTH_SHORT).show();
+            // Use 'this' instead of 'context' since ChatActivity is a Context
+            long fileSize = getContentResolver().openFileDescriptor(fileUri, "r").getStatSize();
+            if (fileSize > 1024 * 1024 * 1024) { // 1024 MB limit
+                throw new IOException("File size exceeds 1 GB limit: " + (fileSize / (1024 * 1024)) + " MB");
+            }
+
+            progressDialog.show();
+            webRTCClient.sendFile(fileUri, peerUsername, fileName, fileType);
         } catch (Exception e) {
-            Log.e("ChatActivity", "Error sending file: " + e.getMessage());
-            Toast.makeText(this, "Failed to send file: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+            Log.e("ChatActivity", "Error initiating file send: " + e.getMessage());
+            Toast.makeText(this, "Failed to send file: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            if (progressDialog.isShowing()) {
+                progressDialog.dismiss();
+            }
         }
     }
 
@@ -321,7 +352,21 @@ public class ChatActivity extends AppCompatActivity {
             }
         } else {
             Log.e("ChatActivity", "File not found: " + filePath);
-            Toast.makeText(this, "File not found: " + filePath, Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "File not found: " + filePath, Toast.LENGTH_LONG).show();
         }
+    }
+
+    @Override
+    public void onProgress(String operation, int progress, String fileName) {
+        runOnUiThread(() -> {
+            if (!progressDialog.isShowing()) {
+                progressDialog.show();
+            }
+            progressBar.setProgress(progress);
+            progressText.setText(String.format("%s '%s': %d%%", operation, fileName, progress));
+            if (progress >= 100 && !operation.equals("Sending")) {
+                progressDialog.dismiss();
+            }
+        });
     }
 }
