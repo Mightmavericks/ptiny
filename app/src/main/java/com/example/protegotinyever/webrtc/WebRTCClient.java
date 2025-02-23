@@ -1,7 +1,13 @@
 package com.example.protegotinyever.webrtc;
 
+import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Context;
+import android.net.Uri;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.example.protegotinyever.adapt.MessageEntity;
 import com.example.protegotinyever.service.ConnectionManager;
@@ -12,6 +18,10 @@ import com.example.protegotinyever.util.FirebaseClient;
 import com.example.protegotinyever.util.MessageEncryptor;
 import org.webrtc.*;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,6 +43,8 @@ public class WebRTCClient {
     private boolean isBackgroundMode = false;
     private WebRTCService webRTCService;
     private DataChannelHandler dataChannelHandler;
+    private static final int CHUNK_SIZE = 16384; // 16 KB chunks (conservative, well below 256 KB limit)
+    private Map<String, byte[]> receivedChunks = new HashMap<>();
     private int rea = 1;
 
     public static WebRTCClient getInstance(Context context, FirebaseClient firebaseClient) {
@@ -137,6 +149,11 @@ public class WebRTCClient {
                         case DISCONNECTED:
                         case CLOSED:
                             if (webrtcListener != null) webrtcListener.onConnectionFailed();
+                            // Attempt reconnection if still marked as connected
+                            if (ConnectionManager.getInstance(context).isUserConnected(peerUsername)) {
+                                Log.d("WebRTC", "Connection lost, attempting to reconnect to " + peerUsername);
+                                startConnection(peerUsername);
+                            }
                             break;
                     }
                 }
@@ -180,11 +197,17 @@ public class WebRTCClient {
 
     private void setupDataChannelObserver(DataChannel dataChannel, String peerUsername) {
         dataChannel.registerObserver(new DataChannel.Observer() {
+            private String fileName;
+            private String fileType;
+            private int totalLength = -1;
+            private byte[] fullData;
+
             @Override
             public void onBufferedAmountChange(long previousAmount) {}
 
             @Override
             public void onStateChange() {
+                Log.d("WebRTCClient", "DataChannel state changed for " + peerUsername + ": " + dataChannel.state());
                 onDataChannelStateChange(peerUsername, dataChannel.state());
             }
 
@@ -195,42 +218,171 @@ public class WebRTCClient {
                 Log.d("WebRTCClient", "Received data from " + peerUsername + ", length: " + data.length);
 
                 try {
-                    String message = MessageEncryptor.decryptMessage(data);
-                    Log.d("WebRTCClient", "Decrypted message from " + peerUsername + ": " + message);
-                    dataChannelHandler.onMessageReceived(peerUsername, message);
-                    if (webrtcListener != null) {
-                        webrtcListener.onMessageReceived(message, peerUsername);
+                    String header = new String(data, 0, Math.min(100, data.length), "UTF-8");
+                    if (header.startsWith("FILE:")) {
+                        String[] parts = header.split(":", 5);
+                        fileName = parts[1];
+                        fileType = parts[2];
+                        totalLength = Integer.parseInt(parts[3]);
+                        fullData = new byte[totalLength];
+                        Log.d("WebRTCClient", "Received file metadata from " + peerUsername + ": " + header);
+                    } else if (header.startsWith("CHUNK:") && totalLength != -1) {
+                        String[] parts = header.split(":", 4);
+                        int chunkTotalLength = Integer.parseInt(parts[1]);
+                        int offset = Integer.parseInt(parts[2]);
+                        int headerLength = parts[0].length() + parts[1].length() + parts[2].length() + 3;
+                        byte[] chunkData = new byte[data.length - headerLength];
+                        System.arraycopy(data, headerLength, chunkData, 0, chunkData.length);
+
+                        byte[] decryptedChunk = MessageEncryptor.decryptData(chunkData);
+                        System.arraycopy(decryptedChunk, 0, fullData, offset, decryptedChunk.length);
+                        Log.d("WebRTCClient", "Received chunk from " + peerUsername + ", offset: " + offset + ", length: " + decryptedChunk.length);
+
+                        if (offset + decryptedChunk.length >= totalLength) {
+                            File savedFile = saveFileToInternalStorage(fullData, fileName, fileType, peerUsername);
+                            if (savedFile != null) {
+                                dataChannelHandler.onMessageReceived(peerUsername, "Received file: " + fileName + " at " + savedFile.getAbsolutePath());
+                                if (webrtcListener != null) {
+                                    webrtcListener.onMessageReceived("Received file: " + fileName + " at " + savedFile.getAbsolutePath(), peerUsername);
+                                }
+                            } else {
+                                throw new IOException("Failed to save decrypted file");
+                            }
+                            // Reset for next file
+                            fileName = null;
+                            fileType = null;
+                            totalLength = -1;
+                            fullData = null;
+                        }
+                    } else {
+                        String message = MessageEncryptor.decryptMessage(data);
+                        Log.d("WebRTCClient", "Decrypted message from " + peerUsername + ": " + message);
+                        dataChannelHandler.onMessageReceived(peerUsername, message);
+                        if (webrtcListener != null) {
+                            webrtcListener.onMessageReceived(message, peerUsername);
+                        }
                     }
                 } catch (Exception e) {
-                    Log.e("WebRTCClient", "Error decrypting message from " + peerUsername + ": " + e.getMessage());
+                    Log.e("WebRTCClient", "Error processing message from " + peerUsername + ": " + e.getMessage());
+                    new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
+                            Toast.makeText(context, "Failed to process message: " + e.getMessage(), Toast.LENGTH_LONG).show()
+                    );
                 }
             }
         });
     }
 
     public void sendEncryptedMessage(String message, String peerUsername) {
+        try {
+            sendEncryptedMessage(message.getBytes("UTF-8"), peerUsername, false, null, null);
+        } catch (Exception e) {
+            Log.e("WebRTCClient", "Error encoding string message: " + e.getMessage());
+            dataChannelHandler.storeMessage(message, peerUsername, "You");
+        }
+    }
+
+    public void sendEncryptedMessage(byte[] data, String peerUsername, boolean isFile, String fileName, String fileType) {
         DataChannel dataChannel = dataChannels.get(peerUsername);
         if (dataChannel == null || dataChannel.state() != DataChannel.State.OPEN) {
-            Log.e("WebRTCClient", "No open data channel for " + peerUsername + ", storing message");
-            dataChannelHandler.storeMessage(message, peerUsername, "You");
+            Log.e("WebRTCClient", "No open data channel for " + peerUsername + ", storing data");
+            dataChannelHandler.storeMessage(isFile ? "File: " + fileName : new String(data), peerUsername, "You");
+            startConnection(peerUsername); // Attempt to reconnect
             return;
         }
 
         try {
             String senderPhone = firebaseClient.getCurrentUserPhone();
             String senderEmail = senderPhone + "@example.com";
-            MessageEncryptor.EncryptionResult result = MessageEncryptor.encryptMessage(message, senderEmail, senderPhone);
 
-            dataChannel.send(new DataChannel.Buffer(ByteBuffer.wrap(result.combinedData), true));
-            Log.d("WebRTCClient", "Sent encrypted message to " + peerUsername + ", length: " + result.combinedData.length);
+            if (isFile) {
+                // Send file metadata first
+                String metadata = "FILE:" + fileName + ":" + fileType + ":" + data.length + ":";
+                byte[] metadataBytes = metadata.getBytes("UTF-8");
+                dataChannel.send(new DataChannel.Buffer(ByteBuffer.wrap(metadataBytes), true));
+                Log.d("WebRTCClient", "Sent file metadata to " + peerUsername + ": " + metadata);
 
-            dataChannelHandler.storeMessage(message, peerUsername, "You");
+                // Chunk and send file data
+                int totalLength = data.length;
+                for (int offset = 0; offset < totalLength; offset += CHUNK_SIZE) {
+                    int chunkLength = Math.min(CHUNK_SIZE, totalLength - offset);
+                    byte[] chunk = new byte[chunkLength];
+                    System.arraycopy(data, offset, chunk, 0, chunkLength);
+
+                    // Encrypt each chunk individually
+                    MessageEncryptor.EncryptionResult result = MessageEncryptor.encryptData(chunk, senderEmail, senderPhone);
+
+                    // Prefix with chunk header
+                    String chunkHeader = "CHUNK:" + totalLength + ":" + offset + ":";
+                    byte[] chunkHeaderBytes = chunkHeader.getBytes("UTF-8");
+                    byte[] chunkWithHeader = new byte[chunkHeaderBytes.length + result.combinedData.length];
+                    System.arraycopy(chunkHeaderBytes, 0, chunkWithHeader, 0, chunkHeaderBytes.length);
+                    System.arraycopy(result.combinedData, 0, chunkWithHeader, chunkHeaderBytes.length, result.combinedData.length);
+
+                    DataChannel.Buffer buffer = new DataChannel.Buffer(ByteBuffer.wrap(chunkWithHeader), true);
+                    if (!dataChannel.send(buffer)) {
+                        throw new IOException("Failed to send chunk at offset " + offset);
+                    }
+                    Log.d("WebRTCClient", "Sent encrypted chunk to " + peerUsername + ", offset: " + offset + ", length: " + chunkLength);
+                }
+
+                Log.d("WebRTCClient", "Sent encrypted file to " + peerUsername + ", total length: " + totalLength);
+            } else {
+                // Handle text messages (no chunking needed)
+                MessageEncryptor.EncryptionResult result = MessageEncryptor.encryptData(data, senderEmail, senderPhone);
+                dataChannel.send(new DataChannel.Buffer(ByteBuffer.wrap(result.combinedData), true));
+                Log.d("WebRTCClient", "Sent encrypted message to " + peerUsername + ", length: " + result.combinedData.length);
+            }
+
+            dataChannelHandler.storeMessage(isFile ? "File: " + fileName : new String(data), peerUsername, "You");
         } catch (Exception e) {
-            Log.e("WebRTCClient", "Error sending encrypted message to " + peerUsername + ": " + e.getMessage());
-            dataChannelHandler.storeMessage(message, peerUsername, "You");
+            Log.e("WebRTCClient", "Error sending encrypted data to " + peerUsername + ": " + e.getMessage());
+            dataChannelHandler.storeMessage(isFile ? "File: " + fileName : new String(data), peerUsername, "You");
+            startConnection(peerUsername); // Attempt to reconnect
         }
     }
 
+    private File saveFileToInternalStorage(byte[] decryptedData, String fileName, String fileType, String peerUsername) {
+        // Use Media Store API to save to Downloads folder
+        ContentResolver resolver = context.getContentResolver();
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+        contentValues.put(MediaStore.MediaColumns.MIME_TYPE, fileType);
+        contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/From_" + peerUsername);
+
+        Uri collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+        Uri fileUri = null;
+
+        try {
+            fileUri = resolver.insert(collection, contentValues);
+            if (fileUri == null) {
+                throw new IOException("Failed to create new MediaStore record for " + fileName);
+            }
+
+            try (OutputStream os = resolver.openOutputStream(fileUri)) {
+                if (os == null) {
+                    throw new IOException("Failed to open output stream for URI: " + fileUri);
+                }
+                os.write(decryptedData);
+                Log.d("WebRTCClient", "File saved to Downloads folder: " + fileUri.toString());
+            }
+
+            // Convert URI to File for compatibility with existing code
+            File file = new File(getRealPathFromUri(fileUri, fileName, peerUsername));
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
+                    Toast.makeText(context, "File saved to Downloads/From_" + peerUsername + ": " + fileName, Toast.LENGTH_LONG).show()
+            );
+            return file;
+        } catch (IOException e) {
+            Log.e("WebRTCClient", "Error saving file to Downloads folder: " + fileName + " - " + e.getMessage());
+            if (fileUri != null) {
+                resolver.delete(fileUri, null, null); // Clean up failed insert
+            }
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
+                    Toast.makeText(context, "Failed to save file: " + fileName + " - " + e.getMessage(), Toast.LENGTH_LONG).show()
+            );
+            return null;
+        }
+    }
     private void createOffer(String peerUsername) {
         if (Boolean.TRUE.equals(hasSentOffers.get(peerUsername))) {
             Log.d("WebRTC", "🚫 Offer already sent to " + peerUsername + ", skipping...");
@@ -248,6 +400,38 @@ public class WebRTCClient {
                     hasSentOffers.put(peerUsername, true);
                 }
             }, new MediaConstraints());
+        }
+    }
+
+    private void processFullMessage(byte[] data, String peerUsername) throws Exception {
+        String metadataStr = new String(data, 0, Math.min(100, data.length), "UTF-8");
+        if (metadataStr.startsWith("FILE:")) {
+            String[] parts = metadataStr.split(":", 5);
+            String fileName = parts[1];
+            String fileType = parts[2];
+            int fileSize = Integer.parseInt(parts[3]);
+            int metadataLength = parts[0].length() + parts[1].length() + parts[2].length() + parts[3].length() + 4;
+            byte[] fileData = new byte[data.length - metadataLength];
+            System.arraycopy(data, metadataLength, fileData, 0, fileData.length);
+
+            byte[] decryptedFileBytes = MessageEncryptor.decryptData(fileData);
+            Log.d("WebRTCClient", "Decrypted file from " + peerUsername + ", length: " + decryptedFileBytes.length);
+            File savedFile = saveFileToInternalStorage(decryptedFileBytes, fileName, fileType, peerUsername);
+            if (savedFile != null) {
+                dataChannelHandler.onMessageReceived(peerUsername, "Received file: " + fileName + " at " + savedFile.getAbsolutePath());
+                if (webrtcListener != null) {
+                    webrtcListener.onMessageReceived("Received file: " + fileName + " at " + savedFile.getAbsolutePath(), peerUsername);
+                }
+            } else {
+                throw new IOException("Failed to save decrypted file");
+            }
+        } else {
+            String message = MessageEncryptor.decryptMessage(data);
+            Log.d("WebRTCClient", "Decrypted message from " + peerUsername + ": " + message);
+            dataChannelHandler.onMessageReceived(peerUsername, message);
+            if (webrtcListener != null) {
+                webrtcListener.onMessageReceived(message, peerUsername);
+            }
         }
     }
 
@@ -344,15 +528,22 @@ public class WebRTCClient {
 
     public void onBackground() {
         isBackgroundMode = true;
-        if (dataChannels != null && !dataChannels.isEmpty()) {
-            Log.d("WebRTC", "App going to background, maintaining connections");
-        }
+        Log.d("WebRTC", "App going to background, maintaining connections");
+        // Don’t close connections, just mark as background
     }
 
     public void onForeground() {
         isBackgroundMode = false;
-        if (!dataChannels.isEmpty()) {
-            Log.d("WebRTC", "App returning to foreground, connections maintained");
+        Log.d("WebRTC", "App returning to foreground, restoring connections");
+        if (!dataChannels.isEmpty() && firebaseClient != null) {
+            ConnectionManager connectionManager = ConnectionManager.getInstance(context);
+            for (String peerUsername : connectionManager.getConnectedUsers()) {
+                DataChannel dataChannel = dataChannels.get(peerUsername);
+                if (dataChannel == null || dataChannel.state() != DataChannel.State.OPEN) {
+                    Log.d("WebRTC", "Restoring connection to " + peerUsername);
+                    startConnection(peerUsername);
+                }
+            }
             if (webrtcListener != null) {
                 for (PeerConnection peerConnection : peerConnections.values()) {
                     if (peerConnection != null && peerConnection.getRemoteDescription() != null) {
@@ -412,6 +603,9 @@ public class WebRTCClient {
                 case CLOSED:
                 case CLOSING:
                     webrtcListener.onConnectionFailed();
+                    if (ConnectionManager.getInstance(context).isUserConnected(peerUsername)) {
+                        startConnection(peerUsername); // Reconnect if still marked as connected
+                    }
                     break;
             }
         }
@@ -462,5 +656,69 @@ public class WebRTCClient {
                 }
             }, new MediaConstraints());
         }
+    }
+
+    private File saveFile(byte[] data, String fileName, String fileType) {
+        ContentResolver resolver = context.getContentResolver();
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
+        contentValues.put(MediaStore.MediaColumns.MIME_TYPE, fileType);
+        contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_PICTURES);
+
+        Uri collection;
+        if (fileType.startsWith("image/")) {
+            collection = MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+        } else if (fileType.startsWith("audio/")) {
+            collection = MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+        } else if (fileType.startsWith("video/")) {
+            collection = MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+        } else {
+            collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+            contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS);
+        }
+
+        Uri fileUri = null;
+        try {
+            fileUri = resolver.insert(collection, contentValues);
+            if (fileUri == null) {
+                throw new IOException("Failed to create new MediaStore record");
+            }
+
+            try (OutputStream os = resolver.openOutputStream(fileUri)) {
+                if (os == null) {
+                    throw new IOException("Failed to open output stream for URI: " + fileUri);
+                }
+                os.write(data);
+                Log.d("WebRTCClient", "File saved: " + fileUri.toString());
+            }
+
+            // Convert URI to File for compatibility with existing code
+            File file = new File(getRealPathFromUri(fileUri));
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
+                    Toast.makeText(context, "File saved to " + fileName, Toast.LENGTH_LONG).show()
+            );
+            return file;
+        } catch (IOException e) {
+            Log.e("WebRTCClient", "Error saving file: " + fileName + " - " + e.getMessage());
+            if (fileUri != null) {
+                resolver.delete(fileUri, null, null); // Clean up failed insert
+            }
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
+                    Toast.makeText(context, "Failed to save file: " + fileName + " - " + e.getMessage(), Toast.LENGTH_LONG).show()
+            );
+            return null;
+        }
+    }
+    private String getRealPathFromUri(Uri uri, String fileName, String peerUsername) {
+        // This is an approximation since Media Store URIs don’t directly map to file paths on Android 10+
+        String basePath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath();
+        return basePath + "/From_" + peerUsername + "/" + fileName;
+    }
+    private String getRealPathFromUri(Uri uri) {
+        String path = uri.getPath();
+        if (path != null && path.startsWith("/document/primary:")) {
+            return Environment.getExternalStorageDirectory() + "/" + path.substring("/document/primary:".length());
+        }
+        return path != null ? path : uri.toString();
     }
 }

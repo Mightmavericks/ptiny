@@ -25,20 +25,24 @@ public class MessageEncryptor {
     }
 
     public static EncryptionResult encryptMessage(String message, String senderEmail, String senderPhone) throws Exception {
+        byte[] messageBytes = message.getBytes("UTF-8");
+        return encryptData(messageBytes, senderEmail, senderPhone);
+    }
+
+    public static EncryptionResult encryptData(byte[] data, String senderEmail, String senderPhone) throws Exception {
         byte[] nonce = generateNonceFromUserInput(senderEmail, senderPhone);
         byte[] iv = generateIV();
         byte[] chachaKey = generateKey();
         byte[] aesKey = generateKey();
-        byte[] messageBytes = message.getBytes("UTF-8");
 
-        Log.d("MessageEncryptor", "Encrypting message: " + message);
+        Log.d("MessageEncryptor", "Encrypting data, length: " + data.length);
 
         // ChaCha20 encryption (Bouncy Castle)
         ChaChaEngine chachaEngine = new ChaChaEngine();
         ParametersWithIV chachaParams = new ParametersWithIV(new KeyParameter(chachaKey), nonce);
         chachaEngine.init(true, chachaParams);
-        byte[] chachaEncrypted = new byte[messageBytes.length];
-        chachaEngine.processBytes(messageBytes, 0, messageBytes.length, chachaEncrypted, 0);
+        byte[] chachaEncrypted = new byte[data.length];
+        chachaEngine.processBytes(data, 0, data.length, chachaEncrypted, 0);
 
         // AES-CTR encryption
         Cipher aesCipher = Cipher.getInstance("AES/CTR/NoPadding");
@@ -61,6 +65,11 @@ public class MessageEncryptor {
     }
 
     public static String decryptMessage(byte[] combinedData) throws Exception {
+        byte[] decryptedBytes = decryptData(combinedData);
+        return new String(decryptedBytes, "UTF-8");
+    }
+
+    public static byte[] decryptData(byte[] combinedData) throws Exception {
         if (combinedData.length < KEY_LENGTH + KEY_LENGTH + NONCE_LENGTH + IV_LENGTH) {
             Log.e("MessageEncryptor", "Invalid combined data length: " + combinedData.length);
             throw new IllegalArgumentException("Invalid combined data length");
@@ -94,9 +103,8 @@ public class MessageEncryptor {
         byte[] decryptedBytes = new byte[chachaEncrypted.length];
         chachaEngine.processBytes(chachaEncrypted, 0, chachaEncrypted.length, decryptedBytes, 0);
 
-        String decryptedMessage = new String(decryptedBytes, "UTF-8");
-        Log.d("MessageEncryptor", "Decrypted message: " + decryptedMessage);
-        return decryptedMessage;
+        Log.d("MessageEncryptor", "Decryption complete, decrypted length: " + decryptedBytes.length);
+        return decryptedBytes;
     }
 
     private static byte[] generateKey() {

@@ -98,17 +98,11 @@
                 android:maxLines="4" />
         </com.google.android.material.textfield.TextInputLayout>
 
-        <com.google.android.material.button.MaterialButton
+        <Button
             android:id="@+id/sendFileButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:backgroundTint="@color/accent"
-            android:text="File"
-            android:textColor="@color/black"
-            android:fontFamily="monospace"
-            app:cornerRadius="8dp"
-            app:icon="@android:drawable/ic_menu_upload"
-            app:iconTint="@color/black" />
+            android:text="Send File" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/sendButton"

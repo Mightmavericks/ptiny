@@ -7,6 +7,8 @@ import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.ContactsContract;
 import android.util.Log;
 import android.view.Menu;
@@ -18,7 +20,6 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.viewpager2.widget.ViewPager2;
 import com.example.protegotinyever.R;
-import com.example.protegotinyever.act.ConnectPagerAdapter;
 import com.example.protegotinyever.service.WebRTCService;
 import com.example.protegotinyever.tt.UserAdapter;
 import com.example.protegotinyever.tt.UserModel;
@@ -32,8 +33,6 @@ import java.util.ArrayList;
 import java.util.List;
 import com.example.protegotinyever.service.ConnectionManager;
 import com.example.protegotinyever.util.SessionManager;
-import android.os.Handler;
-import android.os.Looper;
 
 public class ConnectActivity extends AppCompatActivity {
     private WebRTCClient webRTCClient;
@@ -46,40 +45,41 @@ public class ConnectActivity extends AppCompatActivity {
     private static final int NOTIFICATION_PERMISSION_CODE = 101;
     private boolean hasCheckedPermissions = false;
     private int rea = 1;
+    private Handler handler = new Handler(Looper.getMainLooper());
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_connect);
 
-        // Setup toolbar
         androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        // Initialize views
         viewPager = findViewById(R.id.viewPager);
         tabLayout = findViewById(R.id.tabLayout);
 
-        // Initialize clients
         String username = getIntent().getStringExtra("username");
         String phoneNumber = getIntent().getStringExtra("phoneNumber");
         firebaseClient = new FirebaseClient(username, phoneNumber);
         webRTCClient = WebRTCClient.getInstance(this, firebaseClient);
         connectionManager = ConnectionManager.getInstance(this);
 
-        // Setup UI
         setupViewPager();
         setupWebRTC();
 
-        // Check permissions before starting service and fetching contacts
         checkAndRequestPermissions();
 
-        // Setup back press handling
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
                 moveTaskToBack(true);
             }
+        });
+
+        // Set user online and attempt reconnection on login with retry
+        firebaseClient.saveUser(username, phoneNumber, true, () -> {
+            Log.d("ConnectActivity", "User set online: " + username);
+            reconnectToPreviousUsersWithRetry(3, 1000); // Retry 3 times, 1s delay
         });
     }
 
@@ -87,16 +87,13 @@ public class ConnectActivity extends AppCompatActivity {
         pagerAdapter = new ConnectPagerAdapter(this);
         viewPager.setAdapter(pagerAdapter);
 
-        // Setup tabs
         new TabLayoutMediator(tabLayout, viewPager, (tab, position) -> {
             tab.setText(position == 0 ? "REQUESTS" : "CHATS");
         }).attach();
 
-        // Setup fragments
         pagerAdapter.getRequestsFragment().setWebRTCClient(webRTCClient);
         pagerAdapter.getChatsFragment().setWebRTCClient(webRTCClient);
 
-        // Setup click listeners
         UserAdapter.OnUserClickListener listener = new UserAdapter.OnUserClickListener() {
             @Override
             public void onConnectionButtonClick(UserModel user) {
@@ -130,9 +127,7 @@ public class ConnectActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onMessageReceived(String message, String peerUsername) {
-
-            }
+            public void onMessageReceived(String message, String peerUsername) {}
         });
     }
 
@@ -142,34 +137,25 @@ public class ConnectActivity extends AppCompatActivity {
         }
         hasCheckedPermissions = true;
 
-        boolean needsContactsPermission = ContextCompat.checkSelfPermission(this, 
-            Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED;
-            
-        boolean needsNotificationPermission = false;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            needsNotificationPermission = ContextCompat.checkSelfPermission(this,
-                Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED;
-        }
+        boolean needsContactsPermission = ContextCompat.checkSelfPermission(this,
+                Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED;
 
-        // Request permissions if needed
+        boolean needsNotificationPermission = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED;
+
         if (needsContactsPermission && needsNotificationPermission) {
-            // Request both permissions together
-            ActivityCompat.requestPermissions(this, 
-                new String[]{
-                    Manifest.permission.READ_CONTACTS,
-                    Manifest.permission.POST_NOTIFICATIONS
-                }, 
-                CONTACTS_PERMISSION_CODE);
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.READ_CONTACTS, Manifest.permission.POST_NOTIFICATIONS},
+                    CONTACTS_PERMISSION_CODE);
         } else if (needsContactsPermission) {
             ActivityCompat.requestPermissions(this,
-                new String[]{Manifest.permission.READ_CONTACTS},
-                CONTACTS_PERMISSION_CODE);
-        } else if (needsNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    new String[]{Manifest.permission.READ_CONTACTS},
+                    CONTACTS_PERMISSION_CODE);
+        } else if (needsNotificationPermission) {
             ActivityCompat.requestPermissions(this,
-                new String[]{Manifest.permission.POST_NOTIFICATIONS},
-                NOTIFICATION_PERMISSION_CODE);
+                    new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                    NOTIFICATION_PERMISSION_CODE);
         } else {
-            // All permissions granted, proceed with initialization
             startWebRTCService();
             fetchContactsAndCheckUsers();
         }
@@ -178,11 +164,11 @@ public class ConnectActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        
+
         if (requestCode == CONTACTS_PERMISSION_CODE) {
             boolean contactsGranted = false;
             boolean notificationsGranted = false;
-            
+
             for (int i = 0; i < permissions.length; i++) {
                 if (permissions[i].equals(Manifest.permission.READ_CONTACTS)) {
                     contactsGranted = grantResults[i] == PackageManager.PERMISSION_GRANTED;
@@ -190,13 +176,13 @@ public class ConnectActivity extends AppCompatActivity {
                     notificationsGranted = grantResults[i] == PackageManager.PERMISSION_GRANTED;
                 }
             }
-            
+
             if (contactsGranted) {
                 fetchContactsAndCheckUsers();
             } else {
                 Toast.makeText(this, "Contacts permission is required to find your contacts", Toast.LENGTH_LONG).show();
             }
-            
+
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 if (notificationsGranted) {
                     startWebRTCService();
@@ -220,12 +206,9 @@ public class ConnectActivity extends AppCompatActivity {
             Intent serviceIntent = new Intent(this, WebRTCService.class);
             serviceIntent.putExtra("username", getIntent().getStringExtra("username"));
             serviceIntent.putExtra("phoneNumber", getIntent().getStringExtra("phoneNumber"));
-            // Ensure service is started before any connection requests are handled
             startForegroundService(serviceIntent);
-            
-            // Give the service a moment to initialize
+
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
-                // Fetch contacts and check for online users after service is initialized
                 fetchContactsAndCheckUsers();
             }, 1000);
         } catch (Exception e) {
@@ -238,7 +221,7 @@ public class ConnectActivity extends AppCompatActivity {
         if (firebaseClient == null) {
             return;
         }
-        
+
         List<String> phoneContacts = getDeviceContacts();
         firebaseClient.getRegisteredUsers(users -> {
             runOnUiThread(() -> updateFragments(users));
@@ -246,17 +229,15 @@ public class ConnectActivity extends AppCompatActivity {
     }
 
     private void updateFragments(List<UserModel> users) {
-        // Check for previously connected users that are now online
         for (UserModel user : users) {
             if (user.isOnline() && connectionManager.isUserConnected(user.getUsername())) {
                 DataChannel dataChannel = webRTCClient.getDataChannels().get(user.getUsername());
                 if (dataChannel == null || dataChannel.state() != DataChannel.State.OPEN) {
-                    // Automatically reconnect
+                    Log.d("ConnectActivity", "Reconnecting to " + user.getUsername());
                     webRTCClient.startConnection(user.getUsername());
                 }
             }
         }
-
         pagerAdapter.getRequestsFragment().updateUsers(users);
         pagerAdapter.getChatsFragment().updateUsers(users);
     }
@@ -284,7 +265,7 @@ public class ConnectActivity extends AppCompatActivity {
 
     private void handleConnectionClick(UserModel user) {
         DataChannel dataChannel = webRTCClient.getDataChannels().get(user.getUsername());
-        
+
         if (dataChannel != null && dataChannel.state() == DataChannel.State.OPEN) {
             webRTCClient.disconnectPeer(user.getUsername());
             Toast.makeText(this, "Disconnected from " + user.getUsername(), Toast.LENGTH_SHORT).show();
@@ -293,8 +274,11 @@ public class ConnectActivity extends AppCompatActivity {
             webRTCClient.startConnection(user.getUsername());
             Toast.makeText(this, "Connecting to " + user.getUsername(), Toast.LENGTH_SHORT).show();
             connectionManager.addConnectedUser(user.getUsername());
+            // Ensure requester is marked online
+            firebaseClient.saveUser(getIntent().getStringExtra("username"),
+                    getIntent().getStringExtra("phoneNumber"), true, () -> {});
         }
-        
+
         fetchContactsAndCheckUsers();
     }
 
@@ -306,6 +290,14 @@ public class ConnectActivity extends AppCompatActivity {
             startActivity(intent);
         } else {
             Toast.makeText(this, "Please connect with peer first", Toast.LENGTH_SHORT).show();
+            firebaseClient.getRegisteredUsers(users -> {
+                for (UserModel user : users) {
+                    if (user.getUsername().equals(peerUsername) && user.isOnline()) {
+                        webRTCClient.startConnection(peerUsername);
+                        Toast.makeText(this, "Attempting to reconnect to " + peerUsername, Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
         }
     }
 
@@ -315,6 +307,7 @@ public class ConnectActivity extends AppCompatActivity {
         if (webRTCClient != null) {
             webRTCClient.onForeground();
             fetchContactsAndCheckUsers();
+            reconnectToPreviousUsersWithRetry(3, 1000); // Retry on resume
         }
     }
 
@@ -336,24 +329,46 @@ public class ConnectActivity extends AppCompatActivity {
     public boolean onOptionsItemSelected(MenuItem item) {
         if (item.getItemId() == R.id.action_logout) {
             if (firebaseClient != null) {
-                firebaseClient.saveUser(getIntent().getStringExtra("username"), 
-                    getIntent().getStringExtra("phoneNumber"), 
-                    false, 
-                    () -> {
-                        stopService(new Intent(this, WebRTCService.class));
-                        if (webRTCClient != null) {
-                            webRTCClient.disconnect();
-                        }
-                        // Clear the login session
-                        SessionManager.getInstance(this).clearSession();
-                        Intent intent = new Intent(this, LoginActivity.class);
-                        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                        startActivity(intent);
-                        finish();
-                    });
+                firebaseClient.saveUser(getIntent().getStringExtra("username"),
+                        getIntent().getStringExtra("phoneNumber"),
+                        false,
+                        () -> {
+                            stopService(new Intent(this, WebRTCService.class));
+                            if (webRTCClient != null) {
+                                webRTCClient.disconnect();
+                            }
+                            SessionManager.getInstance(this).clearSession();
+                            Intent intent = new Intent(this, LoginActivity.class);
+                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                            startActivity(intent);
+                            finish();
+                        });
             }
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private void reconnectToPreviousUsersWithRetry(int retries, long delayMillis) {
+        firebaseClient.getRegisteredUsers(users -> {
+            runOnUiThread(() -> {
+                boolean reconnected = false;
+                for (UserModel user : users) {
+                    if (user.isOnline() && connectionManager.isUserConnected(user.getUsername())) {
+                        DataChannel dataChannel = webRTCClient.getDataChannels().get(user.getUsername());
+                        if (dataChannel == null || dataChannel.state() != DataChannel.State.OPEN) {
+                            Log.d("ConnectActivity", "Attempting to reconnect to " + user.getUsername());
+                            webRTCClient.startConnection(user.getUsername());
+                            reconnected = true;
+                        }
+                    }
+                }
+                updateFragments(users);
+                if (!reconnected && retries > 0) {
+                    Log.d("ConnectActivity", "No reconnections made, retrying in " + delayMillis + "ms, retries left: " + retries);
+                    handler.postDelayed(() -> reconnectToPreviousUsersWithRetry(retries - 1, delayMillis), delayMillis);
+                }
+            });
+        });
     }
 }

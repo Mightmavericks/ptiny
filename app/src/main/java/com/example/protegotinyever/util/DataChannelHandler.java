@@ -124,12 +124,12 @@ public class DataChannelHandler {
         }
     }
 
-    public void storeMessage(String message, String peerUsername, String sender) {
+    public void storeMessage(String messageText, String peerUsername, String sender) {
         databaseExecutor.execute(() -> {
             try {
-                MessageEntity messageEntity = new MessageEntity(sender, message, System.currentTimeMillis(), peerUsername);
+                MessageEntity messageEntity = new MessageEntity(sender, messageText, System.currentTimeMillis(), peerUsername);
                 messageDao.insert(messageEntity);
-                Log.d("WebRTC", "Stored message for " + peerUsername + " from " + sender);
+                Log.d("WebRTC", "Stored message for " + peerUsername + " from " + sender + ": " + messageText);
             } catch (Exception e) {
                 Log.e("WebRTC", "Error storing message: " + e.getMessage());
             }
