@@ -20,10 +20,12 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.viewpager2.widget.ViewPager2;
 import com.example.protegotinyever.R;
+import com.example.protegotinyever.service.ConnectionManager;
 import com.example.protegotinyever.service.WebRTCService;
 import com.example.protegotinyever.tt.UserAdapter;
 import com.example.protegotinyever.tt.UserModel;
 import com.example.protegotinyever.util.FirebaseClient;
+import com.example.protegotinyever.util.SessionManager;
 import com.example.protegotinyever.webrtc.WebRTCClient;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.tabs.TabLayoutMediator;
@@ -31,8 +33,6 @@ import androidx.activity.OnBackPressedCallback;
 import org.webrtc.DataChannel;
 import java.util.ArrayList;
 import java.util.List;
-import com.example.protegotinyever.service.ConnectionManager;
-import com.example.protegotinyever.util.SessionManager;
 
 public class ConnectActivity extends AppCompatActivity {
     private WebRTCClient webRTCClient;

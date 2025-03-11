@@ -2,7 +2,7 @@ package com.example.protegotinyever.util;
 
 import android.content.Context;
 import android.util.Log;
-import androidx.room.Room;
+
 import com.example.protegotinyever.db.ChatDatabase;
 import com.example.protegotinyever.db.MessageDao;
 import com.example.protegotinyever.adapt.MessageEntity;

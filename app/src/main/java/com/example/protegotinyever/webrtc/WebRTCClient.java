@@ -436,7 +436,6 @@ public class WebRTCClient {
 
             byte[] buffer = new byte[CHUNK_SIZE];
             int bytesRead;
-
             while ((bytesRead = inputStream.read(buffer)) != -1) {
                 byte[] chunk = new byte[bytesRead];
                 System.arraycopy(buffer, 0, chunk, 0, bytesRead);
@@ -457,26 +456,19 @@ public class WebRTCClient {
 
                 DataChannel.Buffer dataBuffer = new DataChannel.Buffer(ByteBuffer.wrap(chunkWithHeader), true);
                 long bufferedAmount = dataChannel.bufferedAmount();
-                Log.d("WebRTCClient", "Preparing to send chunk to " + peerUsername + ", offset: " + offset + ", length: " + bytesRead + ", buffered: " + bufferedAmount);
 
-                // Throttle with a timeout
-                long startTime = System.currentTimeMillis();
+                // Throttle sending
                 while (bufferedAmount > BUFFER_SIZE * 0.75 && dataChannel.state() == DataChannel.State.OPEN) {
-                    if (System.currentTimeMillis() - startTime > 5000) { // 5-second timeout
-                        throw new IOException("Buffer timeout for " + peerUsername + " at offset " + offset);
-                    }
-                    Log.w("WebRTCClient", "Buffer high for " + peerUsername + ": " + bufferedAmount + ", waiting");
-                    Thread.yield(); // Non-blocking yield
+                    Thread.sleep(100); // Brief sleep to avoid tight loop
                     bufferedAmount = dataChannel.bufferedAmount();
                 }
 
                 if (!dataChannel.send(dataBuffer)) {
                     lastSentOffsets.put(peerUsername, (long) offset);
-                    Log.e("WebRTCClient", "Failed to send chunk to " + peerUsername + " at offset: " + offset);
                     throw new IOException("Failed to send chunk at offset " + offset);
                 }
-                Log.d("WebRTCClient", "Sent encrypted chunk to " + peerUsername + ", offset: " + offset + ", length: " + bytesRead);
 
+                // Update progress more frequently
                 if (progressListener != null) {
                     int sendProgress = (int) (chunksProcessed * 100 / totalChunks);
                     progressListener.onProgress("Sending", sendProgress, fileName);
@@ -485,14 +477,9 @@ public class WebRTCClient {
 
             Log.d("WebRTCClient", "Sent encrypted file to " + peerUsername + ", total length: " + fileSize);
             dataChannelHandler.storeMessage("File: " + fileName, peerUsername, "You");
-            pendingFileTransfers.remove(peerUsername); // Clear on success
+            pendingFileTransfers.remove(peerUsername);
         } catch (Exception e) {
             Log.e("WebRTCClient", "Error sending file to " + peerUsername + ": " + e.getMessage(), e);
-            dataChannelHandler.storeMessage("File: " + fileName, peerUsername, "You");
-            startConnection(peerUsername);
-            if (progressListener != null) {
-                progressListener.onProgress("Error", 0, fileName);
-            }
             throw e;
         }
     }

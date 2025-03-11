@@ -28,9 +28,10 @@ import org.webrtc.DataChannel;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ChatActivity extends AppCompatActivity implements WebRTCClient.ProgressListener {
     private RecyclerView chatRecyclerView;
@@ -302,14 +303,32 @@ public class ChatActivity extends AppCompatActivity implements WebRTCClient.Prog
             String fileType = getContentResolver().getType(fileUri);
             if (fileType == null) fileType = "application/octet-stream";
 
-            // Use 'this' instead of 'context' since ChatActivity is a Context
             long fileSize = getContentResolver().openFileDescriptor(fileUri, "r").getStatSize();
-            if (fileSize > 1024 * 1024 * 1024) { // 1024 MB limit
+            if (fileSize > 1024 * 1024 * 1024) { // 1 GB limit
                 throw new IOException("File size exceeds 1 GB limit: " + (fileSize / (1024 * 1024)) + " MB");
             }
 
+            // Show progress dialog immediately
             progressDialog.show();
-            webRTCClient.sendFile(fileUri, peerUsername, fileName, fileType);
+            progressBar.setProgress(0);
+            progressText.setText(String.format("Preparing to send '%s': 0%%", fileName, 0));
+
+            // Offload file sending to a background thread
+            ExecutorService executor = Executors.newSingleThreadExecutor();
+            String finalFileType = fileType;
+            executor.execute(() -> {
+                try {
+                    webRTCClient.sendFile(fileUri, peerUsername, fileName, finalFileType);
+                } catch (Exception e) {
+                    Log.e("ChatActivity", "Error sending file: " + e.getMessage());
+                    runOnUiThread(() -> {
+                        Toast.makeText(ChatActivity.this, "Failed to send file: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                        if (progressDialog.isShowing()) {
+                            progressDialog.dismiss();
+                        }
+                    });
+                }
+            });
         } catch (Exception e) {
             Log.e("ChatActivity", "Error initiating file send: " + e.getMessage());
             Toast.makeText(this, "Failed to send file: " + e.getMessage(), Toast.LENGTH_LONG).show();
