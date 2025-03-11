@@ -3,12 +3,15 @@ agp = "8.9.0"
 bcprovJdk18on = "1.78.1"
 ccp = "2.6.1"
 circleimageview = "3.1.0"
+documentfile = "1.0.1"
+exoplayerCore = "2.19.1"
 firebaseBom = "33.9.0"
 firebaseBomVersion = "33.7.0"
 firebaseDatabaseKtx = "21.0.0"
 firebaseFirestore = "25.1.2"
 firebaseMessaging = "24.1.0"
 glide = "4.15.1"
+glideVersion = "4.16.0"
 googleWebrtc = "1.0.32006"
 googleWebrtcVersion = "1.0.5"
 gson = "2.10.1"
@@ -32,13 +35,18 @@ biometric = "1.1.0"
 bcprov-jdk18on = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bcprovJdk18on" }
 ccp = { module = "com.hbb20:ccp", version.ref = "ccp" }
 circleimageview = { module = "de.hdodenhof:circleimageview", version.ref = "circleimageview" }
+compiler = { module = "com.github.bumptech.glide:compiler", version.ref = "glideVersion" }
 converter-scalars = { module = "com.squareup.retrofit2:converter-scalars", version.ref = "retrofit" }
+documentfile = { module = "androidx.documentfile:documentfile", version.ref = "documentfile" }
+exoplayer-core = { module = "com.google.android.exoplayer:exoplayer-core", version.ref = "exoplayerCore" }
+exoplayer-ui = { module = "com.google.android.exoplayer:exoplayer-ui", version.ref = "exoplayerCore" }
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
 firebase-bom-v3370 = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBomVersion" }
 firebase-database-ktx = { module = "com.google.firebase:firebase-database-ktx", version.ref = "firebaseDatabaseKtx" }
 firebase-firestore = { module = "com.google.firebase:firebase-firestore", version.ref = "firebaseFirestore" }
 firebase-messaging = { module = "com.google.firebase:firebase-messaging", version.ref = "firebaseMessaging" }
 glide = { module = "com.github.bumptech.glide:glide", version.ref = "glide" }
+glide-v4160 = { module = "com.github.bumptech.glide:glide", version.ref = "glideVersion" }
 google-webrtc = { module = "org.webrtc:google-webrtc", version.ref = "googleWebrtc" }
 google-webrtc-v105 = { module = "org.webrtc:google-webrtc", version.ref = "googleWebrtcVersion" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }

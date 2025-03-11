@@ -80,9 +80,17 @@ dependencies {
     implementation (libs.retrofit)
     implementation (libs.converter.scalars)
 
-    // Glide for image loading
-    implementation (libs.glide)
+    // Glide for image loading and caching
+    implementation(libs.glide.v4160)
+    annotationProcessor(libs.compiler)
 
     // Stories ProgressView
     implementation (libs.storiesprogressview)
+
+    // ExoPlayer for media handling
+    implementation (libs.exoplayer.core)
+    implementation (libs.exoplayer.ui)
+
+    // DocumentFile for better file handling
+    implementation( libs.documentfile)
 }

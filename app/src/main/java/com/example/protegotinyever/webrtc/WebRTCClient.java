@@ -746,18 +746,30 @@ public class WebRTCClient {
         ContentValues contentValues = new ContentValues();
         contentValues.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
         contentValues.put(MediaStore.MediaColumns.MIME_TYPE, fileType);
-        contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/From_" + peerUsername);
 
-        Uri collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+        Uri collection;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            contentValues.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/From_" + peerUsername);
+            collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY);
+        } else {
+            File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+            File peerDir = new File(downloadsDir, "From_" + peerUsername);
+            if (!peerDir.exists() && !peerDir.mkdirs()) {
+                throw new IOException("Failed to create directory: " + peerDir);
+            }
+            collection = MediaStore.Files.getContentUri("external");
+            contentValues.put(MediaStore.MediaColumns.DATA, new File(peerDir, fileName).getAbsolutePath());
+        }
+
         Uri fileUri = null;
-
         try {
             fileUri = resolver.insert(collection, contentValues);
             if (fileUri == null) {
                 throw new IOException("Failed to create new MediaStore record for " + fileName);
             }
 
-            try (OutputStream os = resolver.openOutputStream(fileUri); InputStream is = new java.io.FileInputStream(tempFile)) {
+            try (OutputStream os = resolver.openOutputStream(fileUri);
+                 InputStream is = new java.io.FileInputStream(tempFile)) {
                 if (os == null) {
                     throw new IOException("Failed to open output stream for URI: " + fileUri);
                 }
@@ -766,16 +778,20 @@ public class WebRTCClient {
                 while ((bytesRead = is.read(buffer)) != -1) {
                     os.write(buffer, 0, bytesRead);
                 }
-                Log.d("WebRTCClient", "File saved to Downloads folder: " + fileUri.toString());
+                os.flush();
+                Log.d("WebRTCClient", "File saved successfully: " + fileUri);
             }
 
-            File file = new File(getRealPathFromUri(fileUri, fileName, peerUsername));
+            // Get the real file path
+            String filePath = getRealPathFromUri(fileUri, fileName, peerUsername);
+            File file = new File(filePath);
+
             new android.os.Handler(android.os.Looper.getMainLooper()).post(() ->
                     Toast.makeText(context, "File saved to Downloads/From_" + peerUsername + ": " + fileName, Toast.LENGTH_LONG).show()
             );
             return file;
         } catch (IOException e) {
-            Log.e("WebRTCClient", "Error saving file to Downloads folder: " + fileName + " - " + e.getMessage());
+            Log.e("WebRTCClient", "Error saving file: " + fileName + " - " + e.getMessage());
             if (fileUri != null) {
                 resolver.delete(fileUri, null, null);
             }
@@ -787,7 +803,11 @@ public class WebRTCClient {
     }
 
     private String getRealPathFromUri(Uri uri, String fileName, String peerUsername) {
-        String basePath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).getAbsolutePath();
-        return basePath + "/From_" + peerUsername + "/" + fileName;
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            return Environment.DIRECTORY_DOWNLOADS + "/From_" + peerUsername + "/" + fileName;
+        } else {
+            File downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS);
+            return new File(downloadsDir, "From_" + peerUsername + "/" + fileName).getAbsolutePath();
+        }
     }
 }

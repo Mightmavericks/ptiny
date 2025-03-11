@@ -3,6 +3,7 @@ package com.example.protegotinyever.act;
 import android.app.Dialog;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.MenuItem;
@@ -34,6 +35,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ChatActivity extends AppCompatActivity implements WebRTCClient.ProgressListener {
+    private static final int YOUR_PERMISSION_REQUEST_CODE = 122;
     private RecyclerView chatRecyclerView;
     private EditText messageInput;
     private MessageAdapter messageAdapter;
@@ -81,6 +83,7 @@ public class ChatActivity extends AppCompatActivity implements WebRTCClient.Prog
             }
         });
 
+        requestPermissions();
         setupToolbar();
         setupDataChannel();
         setupRecyclerView();
@@ -92,6 +95,24 @@ public class ChatActivity extends AppCompatActivity implements WebRTCClient.Prog
         findViewById(R.id.sendFileButton).setOnClickListener(v -> pickFile());
     }
 
+    private void requestPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            String[] permissions;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                permissions = new String[]{
+                        android.Manifest.permission.READ_MEDIA_IMAGES,
+                        android.Manifest.permission.READ_MEDIA_VIDEO,
+                        android.Manifest.permission.READ_MEDIA_AUDIO
+                };
+            } else {
+                permissions = new String[]{
+                        android.Manifest.permission.READ_EXTERNAL_STORAGE,
+                        android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+                };
+            }
+            requestPermissions(permissions, YOUR_PERMISSION_REQUEST_CODE);
+        }
+    }
     private void setupToolbar() {
         TextView peerUsernameView = findViewById(R.id.peerUsername);
         peerUsernameView.setText(peerUsername.toUpperCase());
@@ -356,23 +377,53 @@ public class ChatActivity extends AppCompatActivity implements WebRTCClient.Prog
     }
 
     private void openFile(String filePath) {
-        File file = new File(filePath);
-        if (file.exists()) {
-            Uri uri = Uri.fromFile(file);
-            String mimeType = getContentResolver().getType(uri);
-            Intent intent = new Intent(Intent.ACTION_VIEW);
-            intent.setDataAndType(uri, mimeType);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_GRANT_READ_URI_PERMISSION);
-            try {
-                startActivity(intent);
-            } catch (Exception e) {
-                Log.e("ChatActivity", "Error opening file: " + e.getMessage());
-                Toast.makeText(this, "No app found to open this file", Toast.LENGTH_SHORT).show();
+        try {
+            File file = new File(filePath);
+            if (!file.exists()) {
+                Toast.makeText(this, "File not found: " + filePath, Toast.LENGTH_LONG).show();
+                return;
             }
-        } else {
-            Log.e("ChatActivity", "File not found: " + filePath);
-            Toast.makeText(this, "File not found: " + filePath, Toast.LENGTH_LONG).show();
+
+            Uri fileUri;
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N) {
+                fileUri = androidx.core.content.FileProvider.getUriForFile(
+                    this,
+                    getApplicationContext().getPackageName() + ".provider",
+                    file
+                );
+            } else {
+                fileUri = Uri.fromFile(file);
+            }
+
+            String mimeType = getContentResolver().getType(fileUri);
+            if (mimeType == null) {
+                mimeType = getMimeTypeFromExtension(filePath);
+            }
+
+            Intent intent = new Intent(Intent.ACTION_VIEW);
+            intent.setDataAndType(fileUri, mimeType);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+
+            // Create chooser to handle the file
+            Intent chooser = Intent.createChooser(intent, "Open file with");
+            if (intent.resolveActivity(getPackageManager()) != null) {
+                startActivity(chooser);
+            } else {
+                Toast.makeText(this, "No app found to open this file type", Toast.LENGTH_SHORT).show();
+            }
+        } catch (Exception e) {
+            Log.e("ChatActivity", "Error opening file: " + e.getMessage());
+            Toast.makeText(this, "Error opening file: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
+    }
+
+    private String getMimeTypeFromExtension(String filePath) {
+        String extension = android.webkit.MimeTypeMap.getFileExtensionFromUrl(filePath);
+        if (extension != null) {
+            return android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.toLowerCase());
+        }
+        return "application/octet-stream";
     }
 
     @Override
