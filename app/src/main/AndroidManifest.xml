@@ -54,6 +54,8 @@
         <activity
             android:name=".act.LoginActivity"
             android:exported="false" />
+        <activity android:name=".act.SignUpActivity"
+            android:exported="false"/>
         <activity
             android:name=".act.SecuritySetupActivity"
             android:exported="false" />

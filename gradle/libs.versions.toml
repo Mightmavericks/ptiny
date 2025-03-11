@@ -5,6 +5,7 @@ ccp = "2.6.1"
 circleimageview = "3.1.0"
 documentfile = "1.0.1"
 exoplayerCore = "2.19.1"
+firebaseAuth = "23.2.0"
 firebaseBom = "33.9.0"
 firebaseBomVersion = "33.7.0"
 firebaseDatabaseKtx = "21.0.0"
@@ -24,6 +25,7 @@ activity = "1.10.0"
 constraintlayout = "2.2.0"
 multidex = "2.0.1"
 permissionx = "1.7.0"
+playServicesAuth = "21.3.0"
 retrofit = "2.9.0"
 roomRuntime = "2.6.1"
 sdpAndroid = "1.1.0"
@@ -40,6 +42,7 @@ converter-scalars = { module = "com.squareup.retrofit2:converter-scalars", versi
 documentfile = { module = "androidx.documentfile:documentfile", version.ref = "documentfile" }
 exoplayer-core = { module = "com.google.android.exoplayer:exoplayer-core", version.ref = "exoplayerCore" }
 exoplayer-ui = { module = "com.google.android.exoplayer:exoplayer-ui", version.ref = "exoplayerCore" }
+firebase-auth = { module = "com.google.firebase:firebase-auth", version.ref = "firebaseAuth" }
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
 firebase-bom-v3370 = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBomVersion" }
 firebase-database-ktx = { module = "com.google.firebase:firebase-database-ktx", version.ref = "firebaseDatabaseKtx" }
@@ -59,6 +62,7 @@ activity = { group = "androidx.activity", name = "activity", version.ref = "acti
 constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version.ref = "constraintlayout" }
 multidex = { module = "androidx.multidex:multidex", version.ref = "multidex" }
 permissionx = { module = "com.guolindev.permissionx:permissionx", version.ref = "permissionx" }
+play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "playServicesAuth" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
 room-compiler = { module = "androidx.room:room-compiler", version.ref = "roomRuntime" }
 room-runtime = { module = "androidx.room:room-runtime", version.ref = "roomRuntime" }

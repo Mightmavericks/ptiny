@@ -4,55 +4,95 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.protegotinyever.R;
-import com.example.protegotinyever.util.FirebaseClient;
+import com.example.protegotinyever.util.AuthManager;
 import com.example.protegotinyever.util.SessionManager;
+import com.google.firebase.auth.FirebaseUser;
 
 public class LoginActivity extends AppCompatActivity {
-    private EditText usernameInput, phoneNumberInput;
+    private EditText emailInput, passwordInput;
     private Button loginButton;
-    private FirebaseClient firebaseClient;
+    private TextView signUpLink;
+    private AuthManager authManager;
     private SessionManager sessionManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        authManager = AuthManager.getInstance(this);
         sessionManager = SessionManager.getInstance(this);
-        if (sessionManager.isLoggedIn()) {
-            Intent intent = new Intent(this, MainActivity.class); // Redirect to MainActivity for security check
-            startActivity(intent);
-            finish();
-            return;
+
+        // Check if user is already logged in
+        if (authManager.isLoggedIn()) {
+            FirebaseUser user = authManager.getCurrentUser();
+            if (user != null && sessionManager.isLoggedIn()) {
+                Intent intent = new Intent(this, MainActivity.class);
+                startActivity(intent);
+                finish();
+                return;
+            }
         }
 
         setContentView(R.layout.activity_login);
 
-        usernameInput = findViewById(R.id.usernameInput);
-        phoneNumberInput = findViewById(R.id.phoneInput);
+        emailInput = findViewById(R.id.emailInput);
+        passwordInput = findViewById(R.id.passwordInput);
         loginButton = findViewById(R.id.loginButton);
+        signUpLink = findViewById(R.id.signUpLink);
 
         loginButton.setOnClickListener(v -> {
-            String username = usernameInput.getText().toString().trim();
-            String phoneNumber = phoneNumberInput.getText().toString().trim();
+            String email = emailInput.getText().toString().trim();
+            String password = passwordInput.getText().toString().trim();
 
-            if (!username.isEmpty() && !phoneNumber.isEmpty()) {
-                firebaseClient = new FirebaseClient(username, phoneNumber);
-                firebaseClient.saveUser(username, phoneNumber, true, () -> {
-                    sessionManager.saveLoginSession(username, phoneNumber);
-                    Toast.makeText(LoginActivity.this, "Logged in as " + username, Toast.LENGTH_SHORT).show();
-                    Intent intent = new Intent(LoginActivity.this, SecuritySetupActivity.class);
-                    intent.putExtra("username", username);
-                    intent.putExtra("phoneNumber", phoneNumber);
-                    startActivity(intent);
-                    finish();
-                });
-            } else {
-                Toast.makeText(LoginActivity.this, "Enter both username and phone number!", Toast.LENGTH_SHORT).show();
+            if (validateInputs(email, password)) {
+                loginButton.setEnabled(false);
+                authManager.signIn(email, password)
+                    .addOnSuccessListener(authResult -> {
+                        FirebaseUser user = authResult.getUser();
+                        if (user != null) {
+                            String username = user.getDisplayName();
+                            // For simplicity, we'll use email as phone number if not available
+                            String phone = user.getPhoneNumber() != null ? 
+                                         user.getPhoneNumber() : user.getEmail();
+                            
+                            sessionManager.saveLoginSession(username, phone);
+                            Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+                            startActivity(intent);
+                            finish();
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        loginButton.setEnabled(true);
+                        Toast.makeText(LoginActivity.this, 
+                            "Login failed: " + e.getMessage(), 
+                            Toast.LENGTH_SHORT).show();
+                    });
             }
         });
+
+        signUpLink.setOnClickListener(v -> {
+            startActivity(new Intent(this, SignUpActivity.class));
+        });
+    }
+
+    private boolean validateInputs(String email, String password) {
+        if (email.isEmpty()) {
+            emailInput.setError("Email is required");
+            return false;
+        }
+        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+            emailInput.setError("Please enter a valid email");
+            return false;
+        }
+        if (password.isEmpty()) {
+            passwordInput.setError("Password is required");
+            return false;
+        }
+        return true;
     }
 }

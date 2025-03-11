@@ -1,3 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">protegotinyever</string>
+    <string name="app_name">Protegotinyever</string>
+    
+    <!-- Login & Registration -->
+    <string name="login">Login</string>
+    <string name="signup">Sign Up</string>
+    <string name="email_hint">Email</string>
+    <string name="password_hint">Password</string>
+    <string name="username_hint">Username</string>
+    <string name="phone_hint">Phone Number</string>
+    <string name="no_account">Don\'t have an account? Sign up</string>
+    <string name="have_account">Already have an account? Login</string>
+    
+    <!-- Security Setup -->
+    <string name="security_setup">Security Setup</string>
+    <string name="choose_security">Choose Your Security Method</string>
+    <string name="biometric_title">Biometric Authentication</string>
+    <string name="biometric_desc">Use your fingerprint to unlock the app</string>
+    <string name="pin_title">PIN Authentication</string>
+    <string name="pin_desc">Use a 4-digit PIN to unlock the app</string>
+    <string name="pin_hint">Enter 4-digit PIN</string>
+    <string name="confirm_pin_hint">Confirm PIN</string>
+    <string name="pin_only_available">Biometric authentication is not available. Please set up a PIN.</string>
+    <string name="biometric_enabled">Biometric security enabled successfully</string>
+    <string name="pin_enabled">PIN security enabled successfully</string>
+    <string name="pin_setup_error">Failed to set up PIN security</string>
+    <string name="pin_length_error">PIN must be 4 digits</string>
+    <string name="pin_digits_only">PIN must contain only digits</string>
+    <string name="pin_mismatch">PINs do not match</string>
+    
+    <!-- Authentication -->
+    <string name="unlock_app">Unlock Protegotinyever</string>
+    <string name="use_fingerprint">Use fingerprint to unlock</string>
+    <string name="use_fingerprint_subtitle">Place your finger on the sensor</string>
+    <string name="use_pin">Use PIN</string>
+    <string name="enter_pin">Enter your PIN to unlock</string>
+    <string name="authenticate_biometric">Authenticate with Biometric</string>
+    <string name="authenticate_pin">Authenticate with PIN</string>
+    <string name="auth_successful">Authentication Successful!</string>
+    <string name="auth_failed">Authentication Failed. Try Again.</string>
+    <string name="auth_error">Error: %1$s</string>
+    <string name="auth_error_generic">Authentication error occurred</string>
+    <string name="invalid_pin">Invalid PIN</string>
+    <string name="app_unlocked">Protegotinyever Unlocked!</string>
+    
+    <!-- Other -->
+    <string name="logout">Logout</string>
+    <string name="settings">Settings</string>
 </resources>

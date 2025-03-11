@@ -93,4 +93,7 @@ dependencies {
 
     // DocumentFile for better file handling
     implementation( libs.documentfile)
+
+    implementation (libs.firebase.auth)
+    implementation (libs.play.services.auth)
 }
