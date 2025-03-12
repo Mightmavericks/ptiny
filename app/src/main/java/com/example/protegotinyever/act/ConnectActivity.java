@@ -33,6 +33,7 @@ import androidx.activity.OnBackPressedCallback;
 import org.webrtc.DataChannel;
 import java.util.ArrayList;
 import java.util.List;
+import android.view.View;
 
 public class ConnectActivity extends AppCompatActivity {
     private WebRTCClient webRTCClient;
@@ -183,9 +184,16 @@ public class ConnectActivity extends AppCompatActivity {
             }
 
             if (contactsGranted) {
-                fetchContactsAndCheckUsers();
+                handler.postDelayed(() -> {
+                    fetchContactsAndCheckUsers();
+                }, 500);
             } else {
                 Toast.makeText(this, "Contacts permission is required to find your contacts", Toast.LENGTH_LONG).show();
+                // Show the no users text view
+                View noUsersText = findViewById(R.id.noUsersText);
+                if (noUsersText != null) {
+                    noUsersText.setVisibility(View.VISIBLE);
+                }
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -227,9 +235,27 @@ public class ConnectActivity extends AppCompatActivity {
             return;
         }
 
+        // Double check permission before accessing contacts
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) 
+                != PackageManager.PERMISSION_GRANTED) {
+            // Hide any existing user lists since we can't access contacts
+            View noUsersText = findViewById(R.id.noUsersText);
+            if (noUsersText != null) {
+                noUsersText.setVisibility(View.VISIBLE);
+            }
+            return;
+        }
+
         List<String> phoneContacts = getDeviceContacts();
         firebaseClient.getRegisteredUsers(users -> {
-            runOnUiThread(() -> updateFragments(users));
+            runOnUiThread(() -> {
+                updateFragments(users);
+                // Hide the no users text if we have users
+                View noUsersText = findViewById(R.id.noUsersText);
+                if (noUsersText != null) {
+                    noUsersText.setVisibility(users.isEmpty() ? View.VISIBLE : View.GONE);
+                }
+            });
         });
     }
 
@@ -315,8 +341,15 @@ public class ConnectActivity extends AppCompatActivity {
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-            fetchContactsAndCheckUsers();
-            reconnectToPreviousUsersWithRetry(3, 1000); // Retry on resume
+            // Only fetch contacts if we have permission
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) 
+                    == PackageManager.PERMISSION_GRANTED) {
+                fetchContactsAndCheckUsers();
+                reconnectToPreviousUsersWithRetry(3, 1000); // Retry on resume
+            } else {
+                // Request permission if not granted
+                checkAndRequestPermissions();
+            }
         }
     }
 
