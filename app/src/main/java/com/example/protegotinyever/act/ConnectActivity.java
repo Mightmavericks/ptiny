@@ -34,6 +34,7 @@ import org.webrtc.DataChannel;
 import java.util.ArrayList;
 import java.util.List;
 import android.view.View;
+import com.example.protegotinyever.util.ThemeManager;
 
 public class ConnectActivity extends AppCompatActivity {
     private WebRTCClient webRTCClient;
@@ -47,9 +48,14 @@ public class ConnectActivity extends AppCompatActivity {
     private boolean hasCheckedPermissions = false;
     private int rea = 1;
     private Handler handler = new Handler(Looper.getMainLooper());
+    private ThemeManager themeManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Initialize theme before setting content view
+        themeManager = ThemeManager.getInstance(this);
+        themeManager.initializeTheme();
+        
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_connect);
 
@@ -364,12 +370,19 @@ public class ConnectActivity extends AppCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.menu_connect, menu);
+        MenuItem themeItem = menu.findItem(R.id.action_theme);
+        themeItem.setChecked(themeManager.isDarkMode());
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        if (item.getItemId() == R.id.action_logout) {
+        if (item.getItemId() == R.id.action_theme) {
+            boolean newDarkMode = !item.isChecked();
+            item.setChecked(newDarkMode);
+            themeManager.setDarkMode(newDarkMode);
+            return true;
+        } else if (item.getItemId() == R.id.action_logout) {
             if (firebaseClient != null) {
                 firebaseClient.saveUser(getIntent().getStringExtra("username"),
                         getIntent().getStringExtra("phoneNumber"),

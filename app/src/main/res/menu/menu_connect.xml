@@ -1,9 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
+    
+    <item
+        android:id="@+id/action_theme"
+        android:title="Dark Theme"
+        android:icon="@drawable/ic_theme"
+        android:checkable="true"
+        app:showAsAction="never"
+        android:orderInCategory="100"/>
+
     <item
         android:id="@+id/action_logout"
         android:title="Logout"
         android:icon="@drawable/ic_logout"
-        app:showAsAction="never"/>
+        app:showAsAction="never"
+        android:orderInCategory="101"/>
 </menu> 
