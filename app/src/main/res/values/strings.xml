@@ -11,6 +11,7 @@
     <string name="phone_hint">Phone Number</string>
     <string name="no_account">Don\'t have an account? Sign up</string>
     <string name="have_account">Already have an account? Login</string>
+    <string name="forgot_password">Forgot Password?</string>
     
     <!-- Email Verification -->
     <string name="verify_email">Verify Your Email</string>
@@ -58,4 +59,12 @@
     <!-- Other -->
     <string name="logout">Logout</string>
     <string name="settings">Settings</string>
+    
+    <!-- Password Reset -->
+    <string name="reset_password">Reset Password</string>
+    <string name="reset_password_message">Enter your email address and we\'ll send you a link to reset your password.</string>
+    <string name="send_reset_link">Send Reset Link</string>
+    <string name="back_to_login">Back to Login</string>
+    <string name="reset_email_sent">Password reset link sent to your email!</string>
+    <string name="reset_email_error">Failed to send reset link. Please try again.</string>
 </resources>

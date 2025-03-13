@@ -62,6 +62,10 @@ public class AuthManager {
         }
     }
 
+    public Task<Void> sendPasswordResetEmail(String email) {
+        return auth.sendPasswordResetEmail(email);
+    }
+
     public FirebaseUser getCurrentUser() {
         return auth.getCurrentUser();
     }

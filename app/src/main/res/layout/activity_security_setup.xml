@@ -3,7 +3,8 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true">
+    android:fillViewport="true"
+    android:background="@drawable/gradient_background">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -39,7 +40,9 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             app:cardCornerRadius="12dp"
-            app:cardElevation="4dp"
+            app:cardElevation="0dp"
+            android:alpha="0.9"
+            android:background="@drawable/glass_card_background"
             app:layout_constraintTop_toBottomOf="@id/chooseSecurityText">
 
             <LinearLayout
@@ -53,7 +56,7 @@
                     android:layout_height="48dp"
                     android:layout_gravity="center"
                     android:src="@drawable/ic_fingerprint"
-                    app:tint="?attr/colorPrimary" />
+                    app:tint="#FFFFFF" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -70,7 +73,7 @@
                     android:layout_gravity="center"
                     android:layout_marginTop="4dp"
                     android:text="@string/biometric_desc"
-                    android:textAlignment="center" />
+                    android:textAlignment="center"/>
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/enableBiometricButton"
@@ -78,7 +81,8 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:text="@string/authenticate_biometric"
-                    app:cornerRadius="8dp" />
+                    app:cornerRadius="8dp"
+                    android:textColor="@color/black" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -88,7 +92,9 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
             app:cardCornerRadius="12dp"
-            app:cardElevation="4dp"
+            app:cardElevation="0dp"
+            android:alpha="0.9"
+            android:background="@drawable/glass_card_background"
             app:layout_constraintTop_toBottomOf="@id/biometricCard">
 
             <LinearLayout
@@ -102,7 +108,7 @@
                     android:layout_height="48dp"
                     android:layout_gravity="center"
                     android:src="@drawable/ic_pin"
-                    app:tint="?attr/colorPrimary" />
+                    app:tint="#FFFFFF" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -127,14 +133,18 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
-                    android:hint="@string/pin_hint">
+                    android:hint="@string/pin_hint"
+                    android:textColorHint="#E6FFFFFF"
+                    app:boxStrokeColor="#FFFFFF"
+                    app:hintTextColor="#FFFFFF">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/pinInput"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:inputType="numberPassword"
-                        android:maxLength="4" />
+                        android:maxLength="4"
+                        android:textColor="#FFFFFF" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.textfield.TextInputLayout
@@ -143,14 +153,18 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:hint="@string/confirm_pin_hint">
+                    android:hint="@string/confirm_pin_hint"
+                    android:textColorHint="#E6FFFFFF"
+                    app:boxStrokeColor="#FFFFFF"
+                    app:hintTextColor="#FFFFFF">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/confirmPinInput"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:inputType="numberPassword"
-                        android:maxLength="4" />
+                        android:maxLength="4"
+                        android:textColor="#FFFFFF" />
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.button.MaterialButton
@@ -159,7 +173,8 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="16dp"
                     android:text="@string/authenticate_pin"
-                    app:cornerRadius="8dp" />
+                    app:cornerRadius="8dp"
+                    android:textColor="@color/black" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

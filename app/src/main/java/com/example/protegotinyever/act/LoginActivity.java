@@ -44,6 +44,7 @@ public class LoginActivity extends AppCompatActivity {
         passwordInput = findViewById(R.id.passwordInput);
         loginButton = findViewById(R.id.loginButton);
         signUpLink = findViewById(R.id.signUpLink);
+        TextView forgotPasswordLink = findViewById(R.id.forgotPasswordLink);
 
         loginButton.setOnClickListener(v -> {
             String email = emailInput.getText().toString().trim();
@@ -77,6 +78,12 @@ public class LoginActivity extends AppCompatActivity {
 
         signUpLink.setOnClickListener(v -> {
             startActivity(new Intent(this, SignUpActivity.class));
+        });
+
+        forgotPasswordLink.setOnClickListener(v -> {
+            Intent intent = new Intent(this, ForgotPasswordActivity.class);
+            intent.putExtra("email", emailInput.getText().toString().trim());
+            startActivity(intent);
         });
     }
 

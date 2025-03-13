@@ -57,6 +57,9 @@
         <activity android:name=".act.SignUpActivity"
             android:exported="false"/>
         <activity
+            android:name=".act.ForgotPasswordActivity"
+            android:exported="false"/>
+        <activity
             android:name=".act.EmailVerificationActivity"
             android:exported="false"/>
         <activity
