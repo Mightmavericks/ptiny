@@ -44,7 +44,7 @@ public class SignUpActivity extends AppCompatActivity {
                 authManager.signUp(email, password, username, phone)
                     .addOnSuccessListener(authResult -> {
                         sessionManager.saveLoginSession(username, phone);
-                        Intent intent = new Intent(SignUpActivity.this, SecuritySetupActivity.class);
+                        Intent intent = new Intent(SignUpActivity.this, EmailVerificationActivity.class);
                         intent.putExtra("username", username);
                         intent.putExtra("phoneNumber", phone);
                         startActivity(intent);

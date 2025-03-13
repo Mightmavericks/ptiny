@@ -30,9 +30,9 @@
         android:largeHeap="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/appstore"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:roundIcon="@drawable/appstore"
         android:supportsRtl="true"
         android:theme="@style/Theme.ProtegoTinyEver"
         android:requestLegacyExternalStorage="true"
@@ -55,6 +55,9 @@
             android:name=".act.LoginActivity"
             android:exported="false" />
         <activity android:name=".act.SignUpActivity"
+            android:exported="false"/>
+        <activity
+            android:name=".act.EmailVerificationActivity"
             android:exported="false"/>
         <activity
             android:name=".act.SecuritySetupActivity"

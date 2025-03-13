@@ -10,6 +10,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.appcompat.widget.SearchView;
 
 import com.example.protegotinyever.R;
 import com.example.protegotinyever.service.ConnectionManager;
@@ -23,18 +24,23 @@ import java.util.List;
 public class RequestsFragment extends Fragment {
     private RecyclerView recyclerView;
     private TextView noUsersText;
+    private SearchView searchView;
     private UserAdapter adapter;
     private List<UserModel> availableUsers = new ArrayList<>();
+    private List<UserModel> filteredUsers = new ArrayList<>();
     private WebRTCClient webRTCClient;
     private UserAdapter.OnUserClickListener userClickListener;
     private List<UserModel> pendingUsers;
     private boolean isViewCreated = false;
     private ConnectionManager connectionManager;
+    private String currentUsername;
+    private String currentSearchQuery = "";
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         connectionManager = ConnectionManager.getInstance(requireContext());
+        currentUsername = requireActivity().getIntent().getStringExtra("username");
     }
 
     public static RequestsFragment newInstance() {
@@ -46,6 +52,8 @@ public class RequestsFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_requests, container, false);
         recyclerView = view.findViewById(R.id.requestsRecyclerView);
         noUsersText = view.findViewById(R.id.noRequestsText);
+        searchView = view.findViewById(R.id.searchView);
+        setupSearchView();
         return view;
     }
 
@@ -69,10 +77,62 @@ public class RequestsFragment extends Fragment {
         adapter = null;
     }
 
+    private void setupSearchView() {
+        searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                filterUsers(query);
+                return true;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                filterUsers(newText);
+                return true;
+            }
+        });
+    }
+
+    private void filterUsers(String query) {
+        currentSearchQuery = query.toLowerCase().trim();
+        filteredUsers.clear();
+        
+        for (UserModel user : availableUsers) {
+            if (user.getUsername().toLowerCase().contains(currentSearchQuery) ||
+                user.getPhone().contains(currentSearchQuery)) {
+                filteredUsers.add(user);
+            }
+        }
+
+        updateVisibility();
+        adapter.notifyDataSetChanged();
+    }
+
+    private void updateVisibility() {
+        if (getActivity() == null || !isAdded()) return;
+
+        getActivity().runOnUiThread(() -> {
+            if (isViewCreated && isAdded()) {
+                boolean isEmpty = filteredUsers.isEmpty();
+                if (noUsersText != null) {
+                    noUsersText.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
+                    if (isEmpty && !currentSearchQuery.isEmpty()) {
+                        noUsersText.setText("NO MATCHING USERS FOUND");
+                    } else {
+                        noUsersText.setText("NO CONNECTION REQUESTS");
+                    }
+                }
+                if (recyclerView != null) {
+                    recyclerView.setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+                }
+            }
+        });
+    }
+
     private void setupRecyclerView() {
         if (recyclerView != null && getContext() != null) {
             recyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
-            adapter = new UserAdapter(availableUsers, userClickListener, true);
+            adapter = new UserAdapter(filteredUsers, userClickListener, true);
             recyclerView.setAdapter(adapter);
         }
     }
@@ -100,25 +160,15 @@ public class RequestsFragment extends Fragment {
         }
 
         availableUsers.clear();
-        // Only show users that have never been connected
+        // Only show users that have never been connected and are not the current user
         for (UserModel user : users) {
-            if (!connectionManager.isUserConnected(user.getUsername())) {
+            if (!connectionManager.isUserConnected(user.getUsername()) && 
+                !user.getUsername().equals(currentUsername)) {
                 availableUsers.add(user);
             }
         }
         
-        getActivity().runOnUiThread(() -> {
-            if (isViewCreated && isAdded()) {
-                if (noUsersText != null) {
-                    noUsersText.setVisibility(availableUsers.isEmpty() ? View.VISIBLE : View.GONE);
-                }
-                if (recyclerView != null) {
-                    recyclerView.setVisibility(availableUsers.isEmpty() ? View.GONE : View.VISIBLE);
-                }
-                if (adapter != null) {
-                    adapter.notifyDataSetChanged();
-                }
-            }
-        });
+        // Apply current search filter
+        filterUsers(currentSearchQuery);
     }
 } 

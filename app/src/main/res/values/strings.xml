@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Protegotinyever</string>
+    <string name="app_name">PROTEGO</string>
     
     <!-- Login & Registration -->
     <string name="login">Login</string>
@@ -11,6 +11,17 @@
     <string name="phone_hint">Phone Number</string>
     <string name="no_account">Don\'t have an account? Sign up</string>
     <string name="have_account">Already have an account? Login</string>
+    
+    <!-- Email Verification -->
+    <string name="verify_email">Verify Your Email</string>
+    <string name="verification_message">We\'ve sent a verification email to your address. Please check your inbox and click the verification link.</string>
+    <string name="resend_email">Resend Verification Email</string>
+    <string name="verify_continue">I\'ve Verified, Continue</string>
+    <string name="change_email">Change Email Address</string>
+    <string name="email_sent">Verification email sent!</string>
+    <string name="email_verified">Email verified successfully!</string>
+    <string name="verification_error">Verification failed. Please try again.</string>
+    <string name="not_verified">Please verify your email to continue</string>
     
     <!-- Security Setup -->
     <string name="security_setup">Security Setup</string>
