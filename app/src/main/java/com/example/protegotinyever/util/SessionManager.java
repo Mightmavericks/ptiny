@@ -8,6 +8,7 @@ public class SessionManager {
     private static final String KEY_USERNAME = "username";
     private static final String KEY_PHONE = "phone";
     private static final String KEY_IS_LOGGED_IN = "is_logged_in";
+    private static final String KEY_ONBOARDING_COMPLETED = "onboarding_completed";
 
     private static SessionManager instance;
     private final SharedPreferences prefs;
@@ -47,5 +48,15 @@ public class SessionManager {
 
     public String getPhone() {
         return prefs.getString(KEY_PHONE, null);
+    }
+
+    public boolean isOnboardingCompleted() {
+        return prefs.getBoolean(KEY_ONBOARDING_COMPLETED, false);
+    }
+
+    public void setOnboardingCompleted(boolean completed) {
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putBoolean(KEY_ONBOARDING_COMPLETED, completed);
+        editor.apply();
     }
 }

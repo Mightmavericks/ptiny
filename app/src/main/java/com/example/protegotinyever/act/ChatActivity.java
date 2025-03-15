@@ -50,6 +50,9 @@ public class ChatActivity extends AppCompatActivity implements WebRTCClient.Prog
     private Dialog progressDialog;
     private ProgressBar progressBar;
     private TextView progressText;
+    private List<String> messageQueue = new ArrayList<>();
+    private boolean isFileTransferInProgress = false;
+    private ExecutorService messageQueueExecutor = Executors.newSingleThreadExecutor();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -125,7 +128,7 @@ public class ChatActivity extends AppCompatActivity implements WebRTCClient.Prog
     }
 
     private void setupProgressDialog() {
-        progressDialog = new Dialog(this);
+        progressDialog = new Dialog(this, R.style.TransparentDialog);
         progressDialog.setContentView(R.layout.dialog_progress);
         progressDialog.setCancelable(false);
         progressBar = progressDialog.findViewById(R.id.progressBar);
@@ -236,17 +239,41 @@ public class ChatActivity extends AppCompatActivity implements WebRTCClient.Prog
     private void sendMessage() {
         String messageText = messageInput.getText().toString().trim();
         if (!messageText.isEmpty()) {
-            Log.d("ChatActivity", "Sending message to " + peerUsername + ": " + messageText);
-            webRTCClient.sendEncryptedMessage(messageText, peerUsername);
-            messageInput.setText("");
-            addMessageToUI(new MessageModel(currentUser, messageText, System.currentTimeMillis()));
+            if (isFileTransferInProgress) {
+                // Queue the message if file transfer is in progress
+                messageQueue.add(messageText);
+                messageInput.setText("");
+                Toast.makeText(this, "Message will be sent after file transfer completes", Toast.LENGTH_SHORT).show();
+            } else {
+                // Send message immediately if no file transfer is in progress
+                Log.d("ChatActivity", "Sending message to " + peerUsername + ": " + messageText);
+                webRTCClient.sendEncryptedMessage(messageText, peerUsername);
+                messageInput.setText("");
+                addMessageToUI(new MessageModel(currentUser, messageText, System.currentTimeMillis()));
 
-            DataChannel channel = dataChannelHandler.getDataChannel(peerUsername);
-            if (channel == null || channel.state() != DataChannel.State.OPEN) {
-                showOfflineMessageIndicator();
+                DataChannel channel = dataChannelHandler.getDataChannel(peerUsername);
+                if (channel == null || channel.state() != DataChannel.State.OPEN) {
+                    showOfflineMessageIndicator();
+                }
             }
-        } else {
-            Log.d("ChatActivity", "Empty message not sent");
+        }
+    }
+
+    private void processMessageQueue() {
+        if (!messageQueue.isEmpty() && !isFileTransferInProgress) {
+            messageQueueExecutor.execute(() -> {
+                while (!messageQueue.isEmpty() && !isFileTransferInProgress) {
+                    String message = messageQueue.remove(0);
+                    webRTCClient.sendEncryptedMessage(message, peerUsername);
+                    runOnUiThread(() -> addMessageToUI(new MessageModel(currentUser, message, System.currentTimeMillis())));
+                    try {
+                        Thread.sleep(100); // Small delay between messages
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        break;
+                    }
+                }
+            });
         }
     }
 
@@ -290,6 +317,7 @@ public class ChatActivity extends AppCompatActivity implements WebRTCClient.Prog
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        messageQueueExecutor.shutdown();
         if (dataChannelHandler != null) {
             dataChannelHandler.setOnMessageReceivedListener(null);
             dataChannelHandler.setStateChangeListener(null);
@@ -429,13 +457,17 @@ public class ChatActivity extends AppCompatActivity implements WebRTCClient.Prog
     @Override
     public void onProgress(String operation, int progress, String fileName) {
         runOnUiThread(() -> {
-            if (!progressDialog.isShowing()) {
+            isFileTransferInProgress = progress < 100;
+            if (progress == 0) {
                 progressDialog.show();
             }
             progressBar.setProgress(progress);
-            progressText.setText(String.format("%s '%s': %d%%", operation, fileName, progress));
-            if (progress >= 100 && !operation.equals("Sending")) {
+            progressText.setText(operation + ": " + progress + "% - " + fileName);
+            
+            if (progress >= 100) {
                 progressDialog.dismiss();
+                // Process queued messages after file transfer completes
+                processMessageQueue();
             }
         });
     }

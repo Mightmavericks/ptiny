@@ -320,18 +320,17 @@ public class ConnectActivity extends AppCompatActivity {
     }
 
     private void navigateToChat(String peerUsername) {
+        Intent intent = new Intent(this, ChatActivity.class);
+        intent.putExtra("peerUsername", peerUsername);
+        startActivity(intent);
+        
+        // Try to establish connection if not already connected
         DataChannel dataChannel = webRTCClient.getDataChannels().get(peerUsername);
-        if (dataChannel != null && dataChannel.state() == DataChannel.State.OPEN) {
-            Intent intent = new Intent(this, ChatActivity.class);
-            intent.putExtra("peerUsername", peerUsername);
-            startActivity(intent);
-        } else {
-            Toast.makeText(this, "Please connect with peer first", Toast.LENGTH_SHORT).show();
+        if (dataChannel == null || dataChannel.state() != DataChannel.State.OPEN) {
             firebaseClient.getRegisteredUsers(users -> {
                 for (UserModel user : users) {
                     if (user.getUsername().equals(peerUsername) && user.isOnline()) {
                         webRTCClient.startConnection(peerUsername);
-                        Toast.makeText(this, "Attempting to reconnect to " + peerUsername, Toast.LENGTH_SHORT).show();
                     }
                 }
             });
@@ -381,6 +380,10 @@ public class ConnectActivity extends AppCompatActivity {
             boolean newDarkMode = !item.isChecked();
             item.setChecked(newDarkMode);
             themeManager.setDarkMode(newDarkMode);
+            // Refresh the data without recreating the activity
+            handler.postDelayed(() -> {
+                fetchContactsAndCheckUsers();
+            }, 100); // Small delay to ensure theme is applied
             return true;
         } else if (item.getItemId() == R.id.action_logout) {
             if (firebaseClient != null) {
