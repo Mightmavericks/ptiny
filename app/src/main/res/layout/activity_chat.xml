@@ -127,57 +127,61 @@
             android:gravity="center_vertical">
 
             <com.google.android.material.textfield.TextInputLayout
+                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
                 android:layout_marginEnd="8dp"
-                style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                android:layout_weight="1"
+                android:alpha="0.9"
                 app:boxBackgroundColor="@android:color/transparent"
-                app:boxStrokeColor="@color/accent"
                 app:boxCornerRadiusBottomEnd="8dp"
                 app:boxCornerRadiusBottomStart="8dp"
                 app:boxCornerRadiusTopEnd="8dp"
                 app:boxCornerRadiusTopStart="8dp"
-                android:alpha="0.9"
+                app:boxStrokeColor="@color/accent"
                 app:hintTextColor="@color/accent">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/messageInput"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="ENCRYPTED MESSAGE"
-                    android:textColor="@color/text_primary"
-                    android:textColorHint="@color/text_secondary"
+                    android:layout_height="56dp"
                     android:fontFamily="monospace"
+                    android:hint="ENCRYPTED MESSAGE"
                     android:inputType="textMultiLine"
-                    android:maxLines="4"/>
+                    android:maxLines="4"
+                    android:textColor="@color/text_primary"
+                    android:textColorHint="@color/text_secondary" />
             </com.google.android.material.textfield.TextInputLayout>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/sendFileButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Send File"
+                android:layout_width="45dp"
+                android:layout_height="37dp"
                 android:layout_marginEnd="8dp"
+                android:textColor="@color/accent"
+                android:textSize="12sp"
+                android:textStyle="bold"
                 app:cornerRadius="8dp"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                app:strokeColor="@color/accent"
-                android:textColor="@color/accent" />
+                android:layout_gravity="center"
+                app:icon="@drawable/ic_file_document"
+                app:iconGravity="textTop"
+                app:iconSize="17dp"
+                app:strokeColor="@color/accent" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/sendButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
+                android:layout_width="44dp"
+                android:layout_height="39dp"
                 android:backgroundTint="@color/accent"
-                android:text="SEND"
-                android:textColor="@color/black"
-                android:fontFamily="monospace"
-                app:cornerRadius="8dp"
-                android:stateListAnimator="@null"
                 android:elevation="2dp"
+                android:fontFamily="monospace"
+                android:stateListAnimator="@null"
+                android:textColor="@color/black"
+                app:cornerRadius="8dp"
                 app:icon="@android:drawable/ic_menu_send"
-                app:iconTint="@color/black"
-                app:iconGravity="textEnd" />
+                app:iconSize="20dp"
+                app:iconGravity="textTop"
+                app:iconTint="@color/black" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
